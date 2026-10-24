@@ -64,9 +64,9 @@ at `http://127.0.0.1:8000/docs`.
 | --- | --- |
 | `GEMINI_API_KEY` | Required for Gemini Live voice chat; leave blank if voice is not needed. |
 | `GEMINI_LIVE_MODEL` | Gemini Live model; defaults to `gemini-3.8-live`. |
-| `LLM_API_KEY` | Optional OpenAI-compatible provider key for generated summaries. |
-| `LLM_API_BASE_URL` | Optional provider endpoint; defaults to `https://api.openai.com/v1`. |
-| `LLM_MODEL` | Optional provider model; defaults to `gpt-4o-mini`. |
+| `LLM_API_KEY` | NVIDIA NIM API key for generated summaries; optional because local extractive RAG works without it. |
+| `LLM_API_BASE_URL` | OpenAI-compatible NVIDIA NIM endpoint; `https://integrate.api.nvidia.com/v1`. |
+| `LLM_MODEL` | NVIDIA model used by this project: `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`. |
 | `SOP_DB_PATH` | Optional SQLite path; defaults to `data/nexus_sop.sqlite3`. |
 
 Without `LLM_API_KEY`, the app still works using local extractive RAG. The

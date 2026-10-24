@@ -32,8 +32,12 @@ load_dotenv(ROOT / ".env")
 KNOWLEDGE_DIR = ROOT / "data" / "knowledge"
 DB_PATH = Path(os.environ.get("SOP_DB_PATH", ROOT / "data" / "nexus_sop.sqlite3"))
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
-LLM_API_BASE_URL = os.environ.get("LLM_API_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+LLM_API_BASE_URL = os.environ.get(
+    "LLM_API_BASE_URL", "https://integrate.api.nvidia.com/v1"
+).rstrip("/")
+LLM_MODEL = os.environ.get(
+    "LLM_MODEL", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_LIVE_MODEL = os.environ.get("GEMINI_LIVE_MODEL", "gemini-3.8-live")
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024

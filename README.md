@@ -7,7 +7,7 @@
 - FastAPI backend with persistent SQLite document, query, and escalation records.
 - Lexical passage retrieval with Porter stemming, IDF relevance scores, query-term coverage, and source excerpts.
 - Every answerable question runs retrieval first; the retrieved passages are sent to the model as numbered references (`[S1]`, `[S2]`, ...) and the answer is checked so it can never cite a source that was not retrieved.
-- Optional OpenAI-compatible grounded summarization for non-operational questions; extractive mode works without an API key. Transient provider failures are retried with backoff.
+- Optional NVIDIA NIM grounded summarization for non-operational questions; extractive mode works without an API key. Transient provider failures are retried with backoff.
 - Conversational replies ("hi", "thanks", "what can you do") are answered instead of refused, and are logged separately from evidence-grounded answers.
 - Safety-intent refusal and low-evidence abstention. The refusal check looks at the object of the
   request, not just keywords, so "How do I configure the machine?" is refused while "How do I
@@ -65,7 +65,7 @@ at `http://127.0.0.1:8000/docs`.
 | `GEMINI_API_KEY` | Required for Gemini Live voice chat; leave blank if voice is not needed. |
 | `GEMINI_LIVE_MODEL` | Gemini Live model; defaults to `gemini-3.8-live`. |
 | `LLM_API_KEY` | NVIDIA NIM API key for generated summaries; optional because local extractive RAG works without it. |
-| `LLM_API_BASE_URL` | OpenAI-compatible NVIDIA NIM endpoint; `https://integrate.api.nvidia.com/v1`. |
+| `LLM_API_BASE_URL` | NVIDIA NIM chat endpoint; `https://integrate.api.nvidia.com/v1`. |
 | `LLM_MODEL` | NVIDIA model used by this project: `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`. |
 | `SOP_DB_PATH` | Optional SQLite path; defaults to `data/nexus_sop.sqlite3`. |
 

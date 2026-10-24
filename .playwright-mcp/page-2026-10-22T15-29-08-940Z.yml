@@ -1,0 +1,17 @@
+- generic [ref=e2]:
+  - heading "Live Audio Chat" [level=1] [ref=e3]
+  - generic [ref=e4]:
+    - text: Bidirectional live voice via Gemini
+    - code [ref=e5]: gemini-3.8-live
+    - text: (audio in / audio out)
+  - generic [ref=e6]:
+    - button "Start Live Chat" [ref=e7] [cursor=pointer]
+    - generic [ref=e8]: Idle
+  - generic [ref=e20]:
+    - 'textbox "Optional: send a text message..." [ref=e21]'
+    - button "Send" [ref=e22] [cursor=pointer]
+  - generic [ref=e23]: Ready. Click 'Start Live Chat' and allow microphone.
+  - generic [ref=e25]:
+    - text: "Model:"
+    - code [ref=e26]: gemini-3.8-live
+    - text: · Input PCM 16 kHz mono · Output PCM 24 kHz mono · Microphone access required. Works in Chrome/Edge.

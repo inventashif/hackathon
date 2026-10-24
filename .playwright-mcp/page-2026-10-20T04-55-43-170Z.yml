@@ -1,0 +1,103 @@
+- generic [ref=f1e1]:
+  - banner [ref=f1e2]:
+    - generic [ref=f1e4]:
+      - generic [ref=f1e5]: 
+      - generic [ref=f1e7]:
+        - heading "Nexus SOP Evidence LOCAL RETRIEVAL" [level=1] [ref=f1e8]:
+          - text: Nexus
+          - generic [ref=f1e9]: SOP
+          - text: Evidence
+          - generic [ref=f1e10]: LOCAL RETRIEVAL
+        - paragraph [ref=f1e11]: Source-grounded industrial knowledge assistant
+    - generic [ref=f1e12]:
+      - text: 
+      - generic [ref=f1e13]:
+        - generic [ref=f1e14]: "API: ONLINE"
+        - generic [ref=f1e19]: "|"
+        - generic [ref=f1e20]: "Avg. relevance: 0.519"
+      - generic [ref=f1e21]:
+        - button " Assistant" [ref=f1e22] [cursor=pointer]:
+          - generic [ref=f1e23]: 
+          - generic [ref=f1e24]: Assistant
+        - button " Supervisor Dashboard" [active] [ref=f1e25] [cursor=pointer]:
+          - generic [ref=f1e26]: 
+          - generic [ref=f1e27]: Supervisor Dashboard
+  - generic [ref=f1e28]:
+    - complementary [ref=f1e29]:
+      - generic [ref=f1e30]:
+        - generic [ref=f1e31]:
+          - generic [ref=f1e32]: 
+          - heading "Knowledge Vault" [level=2] [ref=f1e33]
+        - generic [ref=f1e34]: 3 docs • 3 approved
+      - generic [ref=f1e36]:
+        - generic [ref=f1e37]: 
+        - textbox "Search manuals, SOPs, tags..." [ref=f1e38]
+      - generic [ref=f1e39]:
+        - generic [ref=f1e40]:
+          - button "system_guide.md Demo knowledge base" [ref=f1e41] [cursor=pointer]:
+            - generic [ref=f1e42]: system_guide.md
+            - generic [ref=f1e43]: Demo knowledge base
+          - paragraph [ref=f1e44]: Approved for retrieval
+        - generic [ref=f1e45]:
+          - button "evidence_policy.md Demo knowledge base" [ref=f1e46] [cursor=pointer]:
+            - generic [ref=f1e47]: evidence_policy.md
+            - generic [ref=f1e48]: Demo knowledge base
+          - paragraph [ref=f1e49]: Approved for retrieval
+        - generic [ref=f1e50]:
+          - button "document_review.md Demo knowledge base" [ref=f1e51] [cursor=pointer]:
+            - generic [ref=f1e52]: document_review.md
+            - generic [ref=f1e53]: Demo knowledge base
+          - paragraph [ref=f1e54]: Approved for retrieval
+      - generic [ref=f1e56] [cursor=pointer]:
+        - generic [ref=f1e57]: 
+        - generic [ref=f1e58]: Add Source Document
+        - generic [ref=f1e59]: Text PDF, TXT, or Markdown • 10 MB max
+    - text:              
+    - main [ref=f1e132]:
+      - generic [ref=f1e133]:
+        - generic [ref=f1e134]:
+          - heading " Knowledge Base & Request Analytics" [level=2] [ref=f1e135]:
+            - generic [ref=f1e136]: 
+            - text: Knowledge Base & Request Analytics
+          - paragraph [ref=f1e137]: Live request, evidence, document-review, and escalation activity from this local demo.
+        - generic [ref=f1e138]:
+          - link " Export Query Log" [ref=f1e139] [cursor=pointer]:
+            - /url: /api/analytics/export
+            - generic [ref=f1e140]: 
+            - text: Export Query Log
+          - button " Refresh Real-time Data" [ref=f1e141] [cursor=pointer]:
+            - generic [ref=f1e142]: 
+            - text: Refresh Real-time Data
+      - generic [ref=f1e143]:
+        - generic [ref=f1e144]:
+          - generic [ref=f1e145]:
+            - generic [ref=f1e146]: Queries logged
+            - generic [ref=f1e147]: 
+          - generic [ref=f1e148]: "126"
+          - generic [ref=f1e149]: 98 grounded • 28 abstained
+        - generic [ref=f1e150]:
+          - generic [ref=f1e151]:
+            - generic [ref=f1e152]: Knowledge documents
+            - generic [ref=f1e153]: 
+          - generic [ref=f1e154]: "3"
+          - generic [ref=f1e155]: 3 approved • 0 pending review
+        - generic [ref=f1e156]:
+          - generic [ref=f1e157]: Average retrieval score
+          - generic [ref=f1e159]: "0.519"
+          - generic [ref=f1e160]: Relevance score, not a probability
+        - generic [ref=f1e161]:
+          - generic [ref=f1e162]:
+            - generic [ref=f1e163]: Escalations logged
+            - generic [ref=f1e164]: 
+          - generic [ref=f1e165]: "1"
+          - generic [ref=f1e166]: Local log only; no notifications sent
+      - generic [ref=f1e167]:
+        - heading "Recent operator queries Latest 10" [level=3] [ref=f1e169]:
+          - generic [ref=f1e170]: Recent operator queries
+          - generic [ref=f1e171]: Latest 10
+        - heading "Grounded vs. abstained All requests" [level=3] [ref=f1e175]:
+          - generic [ref=f1e176]: Grounded vs. abstained
+          - generic [ref=f1e177]: All requests
+        - heading "Retrieval relevance scores" [level=3] [ref=f1e181]
+        - heading "Document approval queue" [level=3] [ref=f1e185]
+  - text:  

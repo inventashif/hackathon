@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusSOP | Industrial Evidence Assistant</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        industrial: {
+                            900: '#0F1319',
+                            800: '#171D25',
+                            700: '#222A36',
+                            600: '#2E3848',
+                            500: '#3E4B5E',
+                            accent: '#FF6B00', // Safety Orange
+                            cyan: '#00E5FF',   // Tech Cyan
+                            success: '#10B981',
+                            warning: '#F59E0B',
+                            danger: '#EF4444'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar for Rugged UI */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F1319;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2E3848;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #FF6B00;
+        }
+        
+        /* Audio Waveform Animation */
+        .wave-bar {
+            animation: wave 1.2s ease-in-out infinite;
+        }
+        .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.4s; }
+
+        @keyframes wave {
+            0%, 100% { height: 8px; }
+            50% { height: 28px; }
+        }
+
+        /* Pulse glow for status */
+        .glow-pulse {
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+        }
+        
+        .hazard-stripe {
+            background: repeating-linear-gradient(
+                -45deg,
+                #FF6B00,
+                #FF6B00 10px,
+                #171D25 10px,
+                #171D25 20px
+            );
+        }
+
+        @media (max-width: 767px) {
+            #sidebar {
+                position: absolute;
+                inset: 0 auto 0 0;
+                z-index: 20;
+                width: min(84vw, 320px);
+                transform: translateX(-105%);
+                box-shadow: 12px 0 30px rgba(0, 0, 0, 0.38);
+            }
+
+            #sidebar.sidebar-open {
+                transform: translateX(0);
+            }
+
+            #sidebarBackdrop:not(.hidden) {
+                position: absolute;
+                inset: 0;
+                z-index: 15;
+                display: block;
+                background: rgba(0, 0, 0, 0.62);
+            }
+        }
+    </style>
+</head>
+<body class="bg-industrial-900 text-slate-100 font-sans antialiased h-screen overflow-hidden flex flex-col">
+
+    <!-- TOP NAV HEADER -->
+    <header class="bg-industrial-800 border-b border-industrial-600 px-4 py-2.5 flex flex-wrap items-center justify-between z-20 shrink-0">
+        <!-- Brand Title & Plant Node -->
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded bg-industrial-accent flex items-center justify-center font-black text-black text-lg shadow-lg">
+                    <i class="fa-solid fa-microchip"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold tracking-wider text-white uppercase flex items-center gap-2">
+                        Nexus<span class="text-industrial-accent">SOP</span> Evidence
+                        <span class="hidden md:inline-flex text-xs px-2 py-0.5 rounded bg-industrial-700 text-industrial-cyan font-mono border border-industrial-500">LOCAL RETRIEVAL</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Source-grounded industrial knowledge assistant</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Telemetry & View Switcher -->
+        <div class="flex items-center space-x-4">
+            <button id="toggleSidebarBtn" onclick="toggleKnowledgeVault()" class="md:hidden bg-industrial-900 border border-industrial-700 px-2.5 py-1.5 rounded text-xs text-slate-300" aria-expanded="false" aria-controls="sidebar">
+                <i class="fa-solid fa-book-open mr-1" aria-hidden="true"></i> Documents
+            </button>
+            <!-- System Status Indicator -->
+            <div class="hidden sm:flex items-center space-x-3 bg-industrial-900 px-3 py-1 rounded border border-industrial-700 font-mono text-xs">
+                <div class="flex items-center space-x-1.5">
+                    <span class="relative flex h-2.5 w-2.5">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-industrial-success opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-industrial-success"></span>
+                    </span>
+                    <span class="text-slate-300">API: <span id="backendStatus" class="text-industrial-warning font-semibold">CONNECTING</span></span>
+                </div>
+                <span class="text-industrial-600">|</span>
+                <div class="text-slate-300">
+                    Avg. relevance: <span id="headerConfidence" class="text-industrial-cyan font-semibold">--</span>
+                </div>
+            </div>
+
+            <!-- View Mode Switcher Buttons -->
+            <div class="flex bg-industrial-900 p-1 rounded-lg border border-industrial-700 text-xs">
+                <button id="viewAssistantBtn" onclick="switchMainView('assistant')" class="px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow">
+                    <i class="fa-solid fa-comments"></i>
+                    <span>Assistant</span>
+                </button>
+                <button id="viewAnalyticsBtn" onclick="switchMainView('analytics')" class="px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Supervisor Dashboard</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN BODY CONTAINER -->
+    <div class="flex flex-1 overflow-hidden relative">
+
+        <!-- SIDEBAR: SOP & MANUAL LIBRARY -->
+        <aside id="sidebar" class="w-80 bg-industrial-800 border-r border-industrial-600 flex flex-col shrink-0 transition-all duration-300 z-10">
+            <!-- Library Header -->
+            <div class="p-3 border-b border-industrial-700 flex items-center justify-between bg-industrial-800">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-book-bookmark text-industrial-accent"></i>
+                    <h2 class="font-bold text-sm text-slate-200 uppercase tracking-wide">Knowledge Vault</h2>
+                </div>
+                <span id="docCount" class="text-xs bg-industrial-700 text-industrial-cyan font-mono px-2 py-0.5 rounded-full border border-industrial-600">Loading</span>
+            </div>
+
+            <!-- Document Search & Filter -->
+            <div class="p-3 border-b border-industrial-700 space-y-2">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                    <input type="text" id="docSearch" placeholder="Search manuals, SOPs, tags..." class="w-full bg-industrial-900 text-xs text-slate-200 pl-8 pr-3 py-2 rounded border border-industrial-700 focus:outline-none focus:border-industrial-cyan transition">
+                </div>
+            </div>
+
+            <!-- Pre-loaded Document List -->
+            <div id="documentList" class="flex-1 overflow-y-auto p-2 space-y-2" aria-live="polite">
+                <p class="p-3 text-xs text-slate-400">Connecting to knowledge base...</p>
+            </div>
+
+            <!-- PDF Upload Dropzone -->
+            <div class="p-3 border-t border-industrial-700 bg-industrial-900/80">
+                <label for="pdfUploadInput" class="border-2 border-dashed border-industrial-600 hover:border-industrial-cyan rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer transition bg-industrial-800/50 hover:bg-industrial-800 group">
+                    <i class="fa-solid fa-cloud-arrow-up text-industrial-cyan group-hover:scale-110 transition text-lg mb-1"></i>
+                    <span class="text-xs font-medium text-slate-300">Add Source Document</span>
+                    <span class="text-[10px] text-slate-500">PDF, TXT, MD, or images (PNG, JPG, WEBP) • 10 MB max</span>
+                    <input id="pdfUploadInput" type="file" accept=".pdf,.txt,.md,.png,.jpg,.jpeg,.webp,.bmp,.tiff" class="hidden" onchange="handleFileUpload(event)">
+                </label>
+            </div>
+        </aside>
+        <button id="sidebarBackdrop" class="hidden" onclick="toggleKnowledgeVault()" aria-label="Close documents panel"></button>
+
+        <!-- VIEW 1: ASSISTANT WORKSPACE -->
+        <main id="assistantView" class="flex-1 flex flex-col bg-industrial-900 overflow-hidden relative">
+
+            <!-- Assistant Mode Banner / Quick Prompts -->
+            <div class="bg-industrial-800 border-b border-industrial-700 px-4 py-2 flex items-center justify-between text-xs shrink-0">
+                <div class="flex items-center space-x-2">
+                    <span class="text-slate-400">Interaction Mode:</span>
+                    <div class="flex bg-industrial-900 rounded border border-industrial-700 p-0.5">
+                        <button id="modeTextBtn" onclick="setInteractionMode('text')" class="px-2.5 py-1 rounded text-industrial-cyan font-semibold bg-industrial-700">Text Chat</button>
+                        <button id="modeVoiceBtn" onclick="setInteractionMode('voice')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white">Hands-Free Voice</button>
+                        <button id="modeLiveBtn" onclick="setInteractionMode('live')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white">Live Voice (Gemini)</button>
+                        <button onclick="testLiveSound()" class="px-2.5 py-1 rounded text-slate-400 hover:text-white" title="Play a test tone to verify speakers">Test Sound</button>
+                        <button id="modeVisualBtn" onclick="setInteractionMode('visual')" class="px-2.5 py-1 rounded text-slate-400 hover:text-industrial-cyan">Image Analysis</button>
+                    </div>
+                </div>
+
+                <!-- Hands-Free Voice Waveform (Hidden by default) -->
+                <div id="voiceWaveformContainer" class="hidden flex items-center space-x-3 bg-industrial-900/90 px-3 py-1 rounded border border-industrial-accent">
+                    <span class="text-[10px] text-industrial-accent font-mono animate-pulse uppercase font-bold"><i class="fa-solid fa-microphone"></i> Voice Active</span>
+                    <div class="flex items-end space-x-1 h-5">
+                        <div class="w-1 bg-industrial-accent rounded-full wave-bar"></div>
+                        <div class="w-1 bg-industrial-accent rounded-full wave-bar"></div>
+                        <div class="w-1 bg-industrial-accent rounded-full wave-bar"></div>
+                        <div class="w-1 bg-industrial-accent rounded-full wave-bar"></div>
+                        <div class="w-1 bg-industrial-accent rounded-full wave-bar"></div>
+                    </div>
+                </div>
+
+                <!-- Suggested Industrial Test Scenarios -->
+                <div class="hidden lg:flex items-center space-x-1.5">
+                    <span class="text-slate-400 text-[11px]">Test Preset:</span>
+                    <button onclick="runSamplePrompt('What does the lexical retrieval score mean?')" class="bg-industrial-700 hover:bg-industrial-600 text-slate-200 px-2 py-1 rounded text-[11px] border border-industrial-600 transition">Evidence scoring</button>
+                    <button onclick="runSamplePrompt('What happens to documents added by an operator?')" class="bg-industrial-700 hover:bg-industrial-600 text-slate-200 px-2 py-1 rounded text-[11px] border border-industrial-600 transition">Document review</button>
+                    <button onclick="runSamplePrompt('Escalate safety-critical questions and missing citations')" class="bg-industrial-700 hover:bg-industrial-600 text-slate-200 px-2 py-1 rounded text-[11px] border border-industrial-600 transition">Escalation policy</button>
+                </div>
+            </div>
+
+            <!-- Interactive Chat Feed -->
+            <div id="chatStream" class="flex-1 overflow-y-auto p-4 space-y-4">
+                
+                <!-- Initial Welcome / System Ready Prompt -->
+                <div class="bg-industrial-800/80 border border-industrial-700 rounded-xl p-4 max-w-3xl mx-auto shadow-xl">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-industrial-accent/20 border border-industrial-accent flex items-center justify-center text-industrial-accent shrink-0">
+                            <i class="fa-solid fa-robot text-xl"></i>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center space-x-2">
+                                <h3 class="font-bold text-slate-100 text-sm">NexusSOP Evidence Assistant</h3>
+                                <span id="assistantStatus" class="bg-industrial-warning/20 text-industrial-warning border border-industrial-warning/30 text-[10px] px-2 py-0.5 rounded font-mono">CONNECTING TO API</span>
+                            </div>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                This hackathon demonstration searches a local knowledge base and returns source excerpts. Sample sources are synthetic and not approved plant procedures. It does not provide work instructions or process images. Never use it to operate, isolate, repair, adjust, or maintain real equipment.
+                            </p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 text-xs">
+                                <div class="bg-industrial-900 p-2 rounded border border-industrial-700 flex items-center space-x-2">
+                                    <i class="fa-solid fa-shield-halved text-industrial-warning"></i>
+                                    <span>Refuses operational requests</span>
+                                </div>
+                                <div class="bg-industrial-900 p-2 rounded border border-industrial-700 flex items-center space-x-2">
+                                    <i class="fa-solid fa-quote-left text-industrial-cyan"></i>
+                                    <span>Verbatim source citations</span>
+                                </div>
+                                <div class="bg-industrial-900 p-2 rounded border border-industrial-700 flex items-center space-x-2">
+                                    <i class="fa-solid fa-user-check text-industrial-accent"></i>
+                                    <span>Human review before indexing</span>
+                                </div>
+                            </div>
+                            <div class="border-t border-industrial-700 pt-3">
+                                <p class="mb-2 text-[10px] font-mono uppercase tracking-wide text-slate-400">Try a live request</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <button onclick="runSamplePrompt('What does the lexical retrieval score mean?')" class="rounded border border-industrial-600 bg-industrial-900 px-2.5 py-2 text-left text-[11px] text-slate-200 hover:border-industrial-cyan hover:text-white">Show cited evidence</button>
+                                    <button onclick="runSamplePrompt('What happens to documents added by an operator?')" class="rounded border border-industrial-600 bg-industrial-900 px-2.5 py-2 text-left text-[11px] text-slate-200 hover:border-industrial-cyan hover:text-white">Explain document review</button>
+                                    <button onclick="runSamplePrompt('How do I repair a PLC fault?')" class="rounded border border-industrial-600 bg-industrial-900 px-2.5 py-2 text-left text-[11px] text-slate-200 hover:border-industrial-warning hover:text-white">Test safety refusal</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Multimodal Input Panel -->
+            <div class="p-3 border-t border-industrial-700 bg-industrial-800 shrink-0">
+                <div class="max-w-4xl mx-auto space-y-2">
+                    
+                    <!-- Preview Uploaded Image Bar (Hidden initially) -->
+                    <div id="imagePreviewContainer" class="hidden flex items-center justify-between bg-industrial-900 p-2 rounded border border-industrial-cyan text-xs">
+                        <div class="flex items-center space-x-2">
+                            <img id="imagePreviewThumb" src="" class="w-8 h-8 object-cover rounded border border-industrial-700" alt="Preview">
+                            <div>
+                                <span id="imagePreviewName" class="font-mono text-slate-200 block">image.png</span>
+                                <span class="text-[10px] text-industrial-cyan">Image attached</span>
+                            </div>
+                        </div>
+                        <button onclick="removeUploadedImage()" class="text-slate-400 hover:text-industrial-danger px-2"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+
+                    <!-- Preview Uploaded Audio Bar (Hidden initially) -->
+                    <div id="audioPreviewContainer" class="hidden flex items-center justify-between bg-industrial-900 p-2 rounded border border-industrial-accent text-xs">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-music text-industrial-accent text-lg"></i>
+                            <div>
+                                <span id="audioPreviewName" class="font-mono text-slate-200 block">audio.wav</span>
+                                <span class="text-[10px] text-industrial-accent">Audio attached</span>
+                            </div>
+                        </div>
+                        <button onclick="removeUploadedAudio()" class="text-slate-400 hover:text-industrial-danger px-2"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+
+                    <!-- Active document filter banner -->
+                    <div id="docFilterBanner" class="hidden flex items-center justify-between rounded border border-industrial-warning/50 bg-industrial-warning/10 px-3 py-1.5 text-xs text-industrial-warning">
+                        <span id="docFilterLabel">Filtering answers to one document.</span>
+                        <button type="button" onclick="clearDocumentFilter()" class="rounded bg-industrial-700 px-2 py-1 text-[10px] text-slate-200 hover:bg-industrial-600">Clear filter</button>
+                    </div>
+
+                    <!-- Input Bar -->
+                    <div class="flex items-center space-x-2 bg-industrial-900 rounded-lg p-1.5 border border-industrial-700 focus-within:border-industrial-cyan transition">
+                        
+                        <!-- Attach Image Button -->
+                        <label for="visualInspectorUpload" class="p-2 text-slate-400 hover:text-industrial-cyan rounded cursor-pointer transition" title="Attach an image for the model to analyze">
+                            <i class="fa-solid fa-image text-base"></i>
+                            <input id="visualInspectorUpload" type="file" accept="image/*" class="hidden" onchange="handleVisualInspectorUpload(event)">
+                        </label>
+
+                        <!-- Attach Audio Button -->
+                        <label for="audioUploadInput" class="p-2 text-slate-400 hover:text-industrial-accent rounded cursor-pointer transition" title="Attach an audio clip for the model to transcribe/analyze">
+                            <i class="fa-solid fa-microphone text-base"></i>
+                            <input id="audioUploadInput" type="file" accept="audio/*" class="hidden" onchange="handleAudioUpload(event)">
+                        </label>
+
+                        <!-- Camera Capture Simulation -->
+                        <button disabled class="p-2 text-slate-600 rounded transition" title="Camera analysis is not connected in this build">
+                            <i class="fa-solid fa-camera text-base"></i>
+                        </button>
+
+                        <!-- Main Text Prompt -->
+                        <input type="text" id="userQueryInput" placeholder="Ask about document evidence, review, or escalation policy..." class="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none px-2" onkeydown="if(event.key==='Enter') sendUserQuery()">
+
+                        <!-- Voice Dictation Mic Button -->
+                        <button id="micBtn" onclick="toggleVoiceRecognition()" class="p-2 text-slate-400 hover:text-industrial-accent rounded transition" title="Hold/Click for Hands-Free Voice Input">
+                            <i class="fa-solid fa-microphone text-base"></i>
+                        </button>
+
+                        <!-- Submit Button -->
+                        <button onclick="sendUserQuery()" class="bg-industrial-accent hover:bg-orange-600 text-white px-4 py-2 rounded-md font-semibold text-xs flex items-center space-x-1.5 transition shadow-lg">
+                            <span>Submit</span>
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+
+                    <!-- Input Footer Status -->
+                    <div class="flex justify-between items-center text-[10px] text-slate-500 px-1 font-mono">
+                        <span id="backendFooter">Backend: Connecting...</span>
+                        <span id="speechStatus">Voice Recognition: Off</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- VIEW 2: SUPERVISOR ANALYTICS DASHBOARD -->
+        <main id="analyticsView" class="hidden flex-1 bg-industrial-900 overflow-y-auto p-6 space-y-6">
+            
+            <!-- Dashboard Header -->
+            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-industrial-700 pb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-industrial-accent"></i> Knowledge Base & Request Analytics
+                    </h2>
+                    <p class="text-xs text-slate-400">Live request, evidence, document-review, and escalation activity from this local demo.</p>
+                </div>
+                <div class="flex space-x-2">
+                    <a href="/api/analytics/export" class="bg-industrial-800 text-slate-300 border border-industrial-700 px-3 py-1.5 rounded text-xs hover:bg-industrial-700 font-mono">
+                        <i class="fa-solid fa-download mr-1"></i> Export Query Log
+                    </a>
+                    <button onclick="refreshAnalytics()" class="bg-industrial-accent text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-orange-600">
+                        <i class="fa-solid fa-rotate mr-1"></i> Refresh Real-time Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Key Metric Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Card 1 -->
+                <div class="bg-industrial-800 p-4 rounded-xl border border-industrial-700 space-y-1">
+                    <div class="flex justify-between text-slate-400 text-xs">
+                        <span>Queries logged</span>
+                        <i class="fa-solid fa-comments text-industrial-cyan"></i>
+                    </div>
+                    <div id="metricQueries" class="text-2xl font-bold text-white font-mono">0</div>
+                    <div id="metricGrounded" class="text-[10px] text-slate-400 font-mono">
+                        No requests recorded
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="bg-industrial-800 p-4 rounded-xl border border-industrial-700 space-y-1">
+                    <div class="flex justify-between text-slate-400 text-xs">
+                        <span>Knowledge documents</span>
+                        <i class="fa-solid fa-clock-rotate-left text-industrial-accent"></i>
+                    </div>
+                    <div id="metricDocs" class="text-2xl font-bold text-white font-mono">0</div>
+                    <div id="metricReview" class="text-[10px] text-slate-400 font-mono">
+                        0 approved • 0 pending review
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="bg-industrial-800 p-4 rounded-xl border border-industrial-700 space-y-1">
+                    <div class="flex justify-between text-slate-400 text-xs">
+                        <span>Average retrieval score</span>
+                        <i class="fa-solid fa-shield-check text-industrial-success"></i>
+                    </div>
+                    <div id="metricScore" class="text-2xl font-bold text-industrial-cyan font-mono">--</div>
+                    <div class="text-[10px] text-slate-400 font-mono">
+                        Relevance score, not a probability
+                    </div>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="bg-industrial-800 p-4 rounded-xl border border-industrial-700 space-y-1">
+                    <div class="flex justify-between text-slate-400 text-xs">
+                        <span>Escalations logged</span>
+                        <i class="fa-solid fa-user-gear text-industrial-warning"></i>
+                    </div>
+                    <div id="metricEscalations" class="text-2xl font-bold text-industrial-warning font-mono">0</div>
+                    <div class="text-[10px] text-slate-400 font-mono">
+                        Local log only; no notifications sent
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Chart 1: Top SOP Queries -->
+                <div class="bg-industrial-800 p-4 rounded-xl border border-industrial-700 space-y-3">
+                    <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center justify-between">
+                        <span>Recent operator queries</span>
+                        <span class="text-[10px] font-mono text-slate-400 font-normal">Latest 10</span>
+                    </h3>
+                    <div class="h-64 relative">
+                        <canvas id="topQueriesChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Downtime Saved vs Response Time -->
+                <div class="bg-industrial-800 p-4 rounded-xl border border-industrial-700 space-y-3">
+                    <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center justify-between">
+                        <span>Grounded vs. abstained</span>
+                        <span class="text-[10px] font-mono text-slate-400 font-normal">All requests</span>
+                    </h3>
+                    <div class="h-64 relative">
+                        <canvas id="failuresChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 3: Model Confidence Distribution -->
+                <div class="bg-industrial-800 p-4 rounded-xl border border-industrial-700 space-y-3">
+                    <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide">Retrieval relevance scores</h3>
+                    <div class="h-64 relative">
+                        <canvas id="confidenceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 4: Shift Downtime Impact (Hours Saved) -->
+                <div class="bg-industrial-800 p-4 rounded-xl border border-industrial-700 space-y-3">
+                    <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide">Document approval queue</h3>
+                    <div class="h-64 relative">
+                        <canvas id="downtimeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL / LIGHTBOX FOR VISUAL CITATION DIAGRAMS -->
+    <div id="diagramModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-industrial-800 border border-industrial-600 rounded-xl max-w-4xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="p-3 border-b border-industrial-700 flex justify-between items-center bg-industrial-900">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-microchip text-industrial-cyan"></i>
+                    <h3 id="modalTitle" class="font-bold text-sm text-slate-200 font-mono">Schematic Diagram Citation - Page 42</h3>
+                </div>
+                <button onclick="closeDiagramModal()" class="text-slate-400 hover:text-white px-2 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 bg-industrial-900 flex flex-col items-center justify-center">
+                <img id="modalImage" src="" class="max-w-full h-auto rounded border border-industrial-700 shadow-lg object-contain" alt="Diagram schematics">
+                <p id="modalCaption" class="mt-3 text-xs font-mono text-industrial-cyan bg-industrial-800 px-3 py-1.5 rounded border border-industrial-700 w-full text-center">
+                    Extracted from Siemens S7-1200 Wiring Specification • Figure 4-B
+                </p>
+            </div>
+            <div class="p-3 border-t border-industrial-700 bg-industrial-800 flex justify-between items-center">
+                <span class="text-[10px] text-slate-400 font-mono">Vector Grounding: Confirmed via Page Bounding Box #402</span>
+                <button onclick="closeDiagramModal()" class="bg-industrial-700 text-slate-200 text-xs px-4 py-1.5 rounded hover:bg-industrial-600">Close Viewer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Global State
+        let activeView = 'assistant';
+        let isVoiceActive = false;
+        let selectedDocId = null;
+        let currentUploadedImage = null;
+        let textSessionId = null;
+    let currentAudio = null;
+
+    // Live voice (Gemini) state
+    let liveWs = null;
+    let liveAudioCtx = null;
+    let livePlaybackCtx = null;
+    let liveMicStream = null;
+    let liveProcessor = null;
+    let liveScheduledEndTime = 0;
+    let liveActiveSources = [];
+    let liveToolReplyTimer = null;
+    let speechRecognition = null;
+        let ttsSynth = window.speechSynthesis;
+        let documentCache = [];
+        let dashboardCharts = [];
+
+        // Initialize App on DOM Load
+        document.addEventListener('DOMContentLoaded', () => {
+            initLiveDashboardCharts();
+            setupVoiceRecognition();
+            document.getElementById('docSearch').addEventListener('input', renderDocuments);
+            refreshBackendStatus();
+            loadDocuments();
+            refreshAnalytics();
+        });
+
+        // Switch Views (Assistant vs Analytics Dashboard)
+        function switchMainView(view) {
+            activeView = view;
+            const assistantView = document.getElementById('assistantView');
+            const analyticsView = document.getElementById('analyticsView');
+            const assistantBtn = document.getElementById('viewAssistantBtn');
+            const analyticsBtn = document.getElementById('viewAnalyticsBtn');
+
+            if (view === 'assistant') {
+                assistantView.classList.remove('hidden');
+                analyticsView.classList.add('hidden');
+                
+                assistantBtn.className = "px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow";
+                analyticsBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
+            } else {
+                assistantView.classList.add('hidden');
+                analyticsView.classList.remove('hidden');
+                refreshAnalytics();
+
+                analyticsBtn.className = "px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow";
+                assistantBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
+            }
+        }
+
+        function selectDocument(documentId) {
+            selectedDocId = selectedDocId === documentId ? null : documentId;
+            renderDocuments();
+            updateDocFilterBanner();
+            if (window.innerWidth <= 767 && document.getElementById('sidebar').classList.contains('sidebar-open')) {
+                toggleKnowledgeVault();
+            }
+        }
+
+        function clearDocumentFilter() {
+            selectedDocId = null;
+            renderDocuments();
+            updateDocFilterBanner();
+        }
+
+        function updateDocFilterBanner() {
+            const banner = document.getElementById('docFilterBanner');
+            const label = document.getElementById('docFilterLabel');
+            if (selectedDocId === null) {
+                banner.classList.add('hidden');
+                return;
+            }
+            const doc = documentCache.find(item => item.id === selectedDocId);
+            label.textContent = `Filtering answers to: ${doc ? doc.name : 'selected document'}. Click Clear filter to search all documents.`;
+            banner.classList.remove('hidden');
+        }
+
+        function toggleKnowledgeVault() {
+            const sidebar = document.getElementById('sidebar');
+            const isOpen = sidebar.classList.toggle('sidebar-open');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden', !isOpen);
+            document.getElementById('toggleSidebarBtn').setAttribute('aria-expanded', String(isOpen));
+        }
+
+        function makeTextElement(tag, className, text) {
+            const element = document.createElement(tag);
+            element.className = className;
+            element.textContent = text;
+            return element;
+        }
+
+        async function refreshBackendStatus() {
+            const status = document.getElementById('backendStatus');
+            const assistantStatus = document.getElementById('assistantStatus');
+            const footer = document.getElementById('backendFooter');
+            try {
+                await fetch('/api/health').then(response => {
+                    if (!response.ok) throw new Error('API unavailable');
+                    return response.json();
+                });
+                status.textContent = 'ONLINE';
+                status.className = 'text-industrial-success font-semibold';
+                assistantStatus.textContent = 'EVIDENCE API ONLINE';
+                assistantStatus.className = 'bg-industrial-success/20 text-industrial-success border border-industrial-success/30 text-[10px] px-2 py-0.5 rounded font-mono';
+                footer.textContent = 'Backend: Online • local evidence retrieval';
+            } catch (error) {
+                status.textContent = 'OFFLINE';
+                assistantStatus.textContent = 'API UNAVAILABLE';
+                footer.textContent = 'Backend unavailable • start the FastAPI server';
+            }
+        }
+
+        async function loadDocuments() {
+            try {
+                const response = await fetch('/api/documents');
+                if (!response.ok) throw new Error('Could not load documents');
+                const payload = await response.json();
+                documentCache = payload.documents;
+                renderDocuments();
+                updateDocFilterBanner();
+            } catch (error) {
+                document.getElementById('documentList').replaceChildren(
+                    makeTextElement('p', 'p-3 text-xs text-industrial-warning', 'Knowledge base unavailable. Start the backend and refresh.')
+                );
+                document.getElementById('docCount').textContent = 'Offline';
+            }
+        }
+
+        function renderDocuments() {
+            const list = document.getElementById('documentList');
+            const search = document.getElementById('docSearch').value.trim().toLowerCase();
+            const visibleDocs = documentCache.filter(doc => doc.name.toLowerCase().includes(search));
+            list.replaceChildren();
+            document.getElementById('docCount').textContent = `${documentCache.length} docs • ${documentCache.filter(doc => doc.approved).length} approved`;
+
+            if (!visibleDocs.length) {
+                list.append(makeTextElement('p', 'p-3 text-xs text-slate-400', search ? 'No matching documents.' : 'No documents are available.'));
+                return;
+            }
+
+            visibleDocs.forEach(doc => {
+                const card = document.createElement('div');
+                card.className = `doc-item p-2.5 rounded-lg border ${selectedDocId === doc.id ? 'border-industrial-accent bg-industrial-700/50' : 'border-industrial-700 bg-industrial-900/50'} transition`;
+                const selectButton = document.createElement('button');
+                selectButton.type = 'button';
+                selectButton.className = 'w-full text-left';
+                selectButton.addEventListener('click', () => selectDocument(doc.id));
+                const isImage = /\.(png|jpe?g|webp|bmp|tiff?)$/i.test(doc.name);
+                selectButton.append(
+                    makeTextElement('span', 'block text-xs font-semibold text-slate-200 break-words', doc.name),
+                    makeTextElement('span', 'block mt-1 text-[10px] text-slate-400', doc.source)
+                );
+                if (isImage && doc.image_path) {
+                    const imgName = doc.image_path.split('/').pop();
+                    const imgWrap = document.createElement('div');
+                    imgWrap.className = 'mt-2 flex items-center space-x-2';
+                    const thumb = document.createElement('img');
+                    thumb.src = `/api/uploads/${encodeURIComponent(imgName)}`;
+                    thumb.className = 'w-10 h-10 object-cover rounded border border-industrial-700 bg-industrial-800';
+                    thumb.alt = doc.name;
+                    const imgLabel = makeTextElement('span', 'text-[10px] text-industrial-cyan font-mono', 'Image uploaded • OCR indexed');
+                    imgWrap.append(thumb, imgLabel);
+                    card.append(imgWrap);
+                }
+                card.append(selectButton);
+                const status = makeTextElement('p', `mt-2 border-t border-industrial-600/50 pt-1.5 text-[10px] font-mono ${doc.approved ? 'text-industrial-success' : 'text-industrial-warning'}`, doc.approved ? 'Approved for retrieval' : 'Pending human review');
+                card.append(status);
+                if (!doc.approved) {
+                    const approveButton = makeTextElement('button', 'mt-2 rounded bg-industrial-700 px-2 py-1 text-[10px] text-slate-200 hover:bg-industrial-600', 'Approve for demo retrieval');
+                    approveButton.type = 'button';
+                    approveButton.title = 'Demo only: this action has no reviewer authentication.';
+                    approveButton.addEventListener('click', () => approveDocument(doc.id));
+                    card.append(approveButton);
+                }
+                list.append(card);
+            });
+        }
+
+        async function approveDocument(documentId) {
+            try {
+                const response = await fetch(`/api/documents/${documentId}/approve`, { method: 'POST' });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Approval failed');
+                await loadDocuments();
+                appendNotice('Document marked approved for this local demo. Use a real authorized reviewer workflow before deployment.');
+                refreshAnalytics();
+            } catch (error) {
+                appendNotice(error.message, true);
+            }
+        }
+
+        // Set Interaction Mode (Text / Voice / Visual Inspector)
+        function setInteractionMode(mode) {
+            const modeTextBtn = document.getElementById('modeTextBtn');
+            const modeVoiceBtn = document.getElementById('modeVoiceBtn');
+            const modeVisualBtn = document.getElementById('modeVisualBtn');
+            const modeLiveBtn = document.getElementById('modeLiveBtn');
+            const voiceWave = document.getElementById('voiceWaveformContainer');
+
+            [modeTextBtn, modeVoiceBtn, modeLiveBtn, modeVisualBtn].forEach(btn => {
+                btn.className = "px-2.5 py-1 rounded text-slate-400 hover:text-white";
+            });
+
+            if (mode === 'text') {
+                modeTextBtn.className = "px-2.5 py-1 rounded text-industrial-cyan font-semibold bg-industrial-700";
+                voiceWave.classList.add('hidden');
+                stopLiveVoice();
+            } else if (mode === 'voice') {
+                modeVoiceBtn.className = "px-2.5 py-1 rounded text-industrial-accent font-semibold bg-industrial-700";
+                voiceWave.classList.remove('hidden');
+                toggleVoiceRecognition(true);
+                stopLiveVoice();
+            } else if (mode === 'live') {
+                modeLiveBtn.className = "px-2.5 py-1 rounded text-industrial-success font-semibold bg-industrial-700";
+                voiceWave.classList.remove('hidden');
+                startLiveVoice();
+            } else if (mode === 'visual') {
+                modeVisualBtn.className = "px-2.5 py-1 rounded text-industrial-cyan font-semibold bg-industrial-700";
+                voiceWave.classList.add('hidden');
+                document.getElementById('visualInspectorUpload').click();
+            }
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                const response = await fetch('/api/documents', { method: 'POST', body: formData });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.detail || 'Upload failed');
+                await loadDocuments();
+                appendNotice(`${payload.name} uploaded. It is excluded from search until reviewed and approved.`);
+                refreshAnalytics();
+            } catch (error) {
+                appendNotice(error.message, true);
+            } finally {
+                event.target.value = '';
+            }
+        }
+
+        // Handle Visual Inspector Image Upload for Query
+        function handleVisualInspectorUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentUploadedImage = e.target.result;
+                document.getElementById('imagePreviewThumb').src = currentUploadedImage;
+                document.getElementById('imagePreviewName').innerText = file.name;
+                document.getElementById('imagePreviewContainer').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeUploadedImage() {
+            currentUploadedImage = null;
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+        }
+
+        // Handle Audio Upload for Query
+        function handleAudioUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentAudio = e.target.result;
+                document.getElementById('audioPreviewName').innerText = file.name;
+                document.getElementById('audioPreviewContainer').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeUploadedAudio() {
+            currentAudio = null;
+            document.getElementById('audioPreviewContainer').classList.add('hidden');
+        }
+
+        // Send Query to Simulated Multimodal RAG Engine
+        function runSamplePrompt(promptText) {
+            document.getElementById('userQueryInput').value = promptText;
+            sendUserQuery();
+        }
+
+        function appendNotice(message, isError = false) {
+            const notice = makeTextElement('p', `mx-auto max-w-3xl rounded border p-3 text-xs ${isError ? 'border-industrial-danger/50 bg-industrial-danger/10 text-red-200' : 'border-industrial-700 bg-industrial-800 text-slate-300'}`, message);
+            document.getElementById('chatStream').append(notice);
+            document.getElementById('chatStream').scrollTop = document.getElementById('chatStream').scrollHeight;
+        }
+
+        function appendUserMessage(query) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex justify-end';
+            const bubble = document.createElement('div');
+            bubble.className = 'max-w-xl rounded-xl border border-industrial-600 bg-industrial-700 p-3';
+            bubble.append(
+                makeTextElement('div', 'mb-1 text-[10px] font-mono text-industrial-cyan', `Operator • ${new Date().toLocaleTimeString()}`),
+                makeTextElement('p', 'text-xs font-medium text-slate-100 whitespace-pre-wrap', query)
+            );
+            wrapper.append(bubble);
+            document.getElementById('chatStream').append(wrapper);
+        }
+
+        function renderAssistantResponse(query, result) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex space-x-3 items-start max-w-3xl';
+            const icon = document.createElement('div');
+            icon.className = 'w-8 h-8 rounded bg-industrial-accent border border-industrial-accent flex items-center justify-center text-white shrink-0 text-sm';
+            icon.innerHTML = '<i class="fa-solid fa-robot" aria-hidden="true"></i>';
+            const panel = document.createElement('section');
+            panel.className = `flex-1 rounded-xl border p-4 space-y-3 ${result.abstained ? 'border-industrial-warning/60 bg-industrial-800' : 'border-industrial-700 bg-industrial-800'}`;
+            const responseTitle = result.abstained
+                ? 'No verified answer'
+                : (String(result.generation_mode || '').startsWith('conversational') ? 'Assistant reply' : 'Source-grounded response');
+            panel.append(makeTextElement('h3', 'text-sm font-bold text-slate-100', responseTitle));
+            panel.append(makeTextElement('p', 'text-xs leading-relaxed text-slate-200 whitespace-pre-wrap', result.answer));
+
+            if (result.reason) {
+                panel.append(makeTextElement('p', 'text-[11px] text-industrial-warning', result.reason));
+            }
+            (result.citations || []).forEach(citation => {
+                const source = document.createElement('div');
+                source.id = `citation-${citation.reference_id}`;
+                source.className = 'rounded border border-industrial-700 bg-industrial-900 p-3 space-y-2';
+                source.append(
+                    makeTextElement('div', 'text-[10px] font-mono text-industrial-cyan', `${citation.reference_id} • ${citation.document_name} • ${citation.source} • relevance ${citation.score}`),
+                    makeTextElement('blockquote', 'border-l-2 border-industrial-accent pl-3 text-xs leading-relaxed text-slate-300 whitespace-pre-wrap', citation.passage)
+                );
+                panel.append(source);
+            });
+
+            const footer = document.createElement('div');
+            footer.className = 'flex flex-wrap items-center justify-between gap-2 border-t border-industrial-700 pt-2';
+            const metric = result.retrieval_score > 0 ? `Retrieval relevance: ${result.retrieval_score} • not a confidence score` : 'No source evidence found';
+            footer.append(makeTextElement('span', 'text-[10px] font-mono text-slate-400', `${metric} • ${result.generation_mode || 'safety abstention'}`));
+            if (result.abstained) {
+                const escalate = makeTextElement('button', 'rounded bg-industrial-warning px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-500', 'Log escalation');
+                escalate.type = 'button';
+                escalate.addEventListener('click', () => triggerExpertEscalation(query, result.reason || 'Insufficient source evidence'));
+                footer.append(escalate);
+            } else {
+                const readAloud = makeTextElement('button', 'rounded px-2 py-1 text-xs text-slate-300 hover:text-industrial-accent', 'Read aloud');
+                readAloud.type = 'button';
+                readAloud.addEventListener('click', () => speakText(spokenTextFor(result)));
+                footer.append(readAloud);
+            }
+            panel.append(footer);
+            wrapper.append(icon, panel);
+            document.getElementById('chatStream').append(wrapper);
+            document.getElementById('chatStream').scrollTop = document.getElementById('chatStream').scrollHeight;
+            if (isVoiceActive && !result.abstained) {
+                speakText(spokenTextFor(result));
+            }
+        }
+
+        // Read-aloud should speak the answer only. Repeating the full source
+        // passages made the spoken output long and confusing.
+        function spokenTextFor(result) {
+            const answer = (result && result.answer) ? result.answer : '';
+            const citations = (result && result.citations) || [];
+            const sources = citations.length
+                ? ` Sources: ${citations.map(item => `${item.reference_id}, ${item.document_name}`).join('. ')}.`
+                : '';
+            return `${answer}${sources}`;
+        }
+
+        async function sendUserQuery() {
+            const inputEl = document.getElementById('userQueryInput');
+            const queryText = inputEl.value.trim();
+            // Attached media is sent with the request and cleared after sending.
+            if (!queryText) return;
+            appendUserMessage(queryText);
+            const payload = { query: queryText };
+            if (!textSessionId) {
+                const sessionResponse = await fetch('/api/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ kind: 'text' })
+                });
+                if (!sessionResponse.ok) {
+                    appendNotice('Could not start a chat session.', true);
+                    return;
+                }
+                textSessionId = (await sessionResponse.json()).session_id;
+            }
+            payload.session_id = textSessionId;
+            if (selectedDocId !== null) payload.document_id = selectedDocId;
+            if (currentUploadedImage) payload.image = currentUploadedImage;
+            if (currentAudio) payload.audio = currentAudio;
+            inputEl.value = '';
+            removeUploadedImage();
+            removeUploadedAudio();
+            const submitButton = document.querySelector('#assistantView button[onclick="sendUserQuery()"]');
+            if (submitButton) submitButton.disabled = true;
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Request failed');
+                renderAssistantResponse(queryText, result);
+                refreshAnalytics();
+            } catch (error) {
+                appendNotice(`Could not reach the evidence API: ${error.message}`, true);
+            } finally {
+                if (submitButton) submitButton.disabled = false;
+            }
+        }
+
+        // Modal Lightbox Viewer
+        function openDiagramModal(title, caption, imgUrl) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalCaption').innerText = caption;
+            document.getElementById('modalImage').src = imgUrl;
+            document.getElementById('diagramModal').classList.remove('hidden');
+        }
+
+        function closeDiagramModal() {
+            document.getElementById('diagramModal').classList.add('hidden');
+        }
+
+        // Web Speech API Integration
+        function setupVoiceRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                speechRecognition = new SpeechRecognition();
+                speechRecognition.continuous = false;
+                speechRecognition.interimResults = true;
+
+                speechRecognition.onresult = (event) => {
+                    const transcript = Array.from(event.results)
+                        .map(result => result[0])
+                        .map(result => result.transcript)
+                        .join('');
+
+                    document.getElementById('userQueryInput').value = transcript;
+                };
+
+                speechRecognition.onend = () => {
+                    if (isVoiceActive) {
+                        document.getElementById('speechStatus').innerText = "Voice Recognition: Listening finished";
+                        document.getElementById('micBtn').classList.remove('text-industrial-accent', 'animate-pulse');
+                        isVoiceActive = false;
+                    }
+                };
+
+                speechRecognition.onerror = (event) => {
+                    document.getElementById('speechStatus').innerText = "Voice Error: " + event.error;
+                    isVoiceActive = false;
+                };
+            } else {
+                document.getElementById('speechStatus').innerText = "Web Speech API not supported on browser";
+            }
+        }
+
+        function toggleVoiceRecognition(forceStart = false) {
+            if (!speechRecognition) {
+                alert("Speech recognition is not supported in this browser environment.");
+                return;
+            }
+
+            const micBtn = document.getElementById('micBtn');
+            const speechStatus = document.getElementById('speechStatus');
+
+            if (!isVoiceActive || forceStart) {
+                try {
+                    speechRecognition.start();
+                    isVoiceActive = true;
+                    micBtn.classList.add('text-industrial-accent', 'animate-pulse');
+                    speechStatus.innerText = "Voice Recognition: Listening...";
+                } catch(e) {
+                    console.log("Speech already started");
+                }
+            } else {
+                speechRecognition.stop();
+                isVoiceActive = false;
+                micBtn.classList.remove('text-industrial-accent', 'animate-pulse');
+                speechStatus.innerText = "Voice Recognition: Off";
+            }
+        }
+
+        // ===== Live Voice (Gemini 3.8 Live) =====
+        function ensureLivePlaybackCtx() {
+            if (!livePlaybackCtx || livePlaybackCtx.state === 'closed') {
+                // Don't force 24000 on hardware destination; buffer carries its own rate.
+                livePlaybackCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (livePlaybackCtx.state === 'suspended') {
+                livePlaybackCtx.resume();
+            }
+            return livePlaybackCtx;
+        }
+
+        function stopLiveAudioPlayback() {
+            liveActiveSources.forEach(s => {
+                try { s.stop(); } catch(e){}
+            });
+            liveActiveSources = [];
+            liveScheduledEndTime = 0;
+        }
+
+        async function startLiveVoice() {
+            if (liveWs) return;
+            const ctx = ensureLivePlaybackCtx();
+            try { await ctx.resume(); } catch(e) { console.error('resume err', e); }
+            appendNotice('Starting live voice (Gemini)... allow microphone access.');
+            let cfg;
+            try {
+                const r = await fetch('/api/voice/config');
+                if (!r.ok) throw new Error(`Voice config HTTP ${r.status}`);
+                cfg = await r.json();
+            } catch (e) {
+                appendNotice(`Voice config unavailable. Open the app through the running backend and restart it after code changes. (${e.message})`, true);
+                return;
+            }
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsPath = cfg.ws_url || '/api/voice/ws';
+            const wsUrl = `${wsProtocol}//${window.location.host}${wsPath}`;
+            try {
+                liveWs = new WebSocket(wsUrl);
+            } catch (e) {
+                appendNotice('WebSocket failed: ' + e.message, true);
+                return;
+            }
+            liveWs.onopen = async () => {
+                const setup = {
+                    setup: {
+                        model: `models/${cfg.model}`,
+                        generationConfig: {
+                            responseModalities: ['AUDIO'],
+                            speechConfig: {
+                                voiceConfig: {
+                                    prebuiltVoiceConfig: {
+                                        voiceName: 'Aoede'
+                                    }
+                                }
+                            }
+                        },
+                        inputAudioTranscription: {},
+                        outputAudioTranscription: {},
+                        systemInstruction: {
+                            parts: [{
+                                text: 'You are a helpful industrial knowledge assistant. '
+                                    + 'Answer operational or safety-critical requests conservatively. '
+                                    + 'You MUST call search_knowledge_base before answering ANY question '
+                                    + 'about uploaded documents, document names, the knowledge vault, '
+                                    + 'policies, evidence, or source details. The backend executes the tool '
+                                    + 'against approved extracted document text and returns the approved '
+                                    + 'document catalog and grounded excerpts. Do not claim to see a document '
+                                    + 'unless it appears in the tool result. Give concise spoken answers and '
+                                    + 'mention the document names used.'
+                            }]
+                        },
+                        tools: [{
+                            functionDeclarations: [{
+                                name: 'search_knowledge_base',
+                                description: 'MUST be used for every question about uploaded documents, document names, the knowledge vault, policies, evidence, or source details. Returns the approved document catalog and grounded excerpts. Never answer those questions from memory.',
+                                parameters: {
+                                    type: 'OBJECT',
+                                    properties: {
+                                        query: {
+                                            type: 'STRING',
+                                            description: 'The user question to search for in approved documents.'
+                                        }
+                                    },
+                                    required: ['query']
+                                }
+                            }]
+                        }]
+                    }
+                };
+                liveWs.send(JSON.stringify(setup));
+                await startLiveMic();
+                appendNotice('Live voice connected. Speak now.');
+            };
+            liveWs.onmessage = (ev) => {
+                const processText = (text) => {
+                    if (!text || text.trim() === '{}') return; // skip empty keepalive frames
+                    let msg;
+                    try {
+                        msg = JSON.parse(text);
+                    } catch (e) {
+                        console.error('LIVE parse error:', e);
+                        return;
+                    }
+                    try {
+                        if (msg.setupComplete) {
+                            appendNotice('Live voice session ready. Speak into your microphone.');
+                            return;
+                        }
+                        if (msg.nexusToolResult) {
+                            const result = msg.nexusToolResult[0] || {};
+                            const names = (result.approved_documents || []).map((document) => document.name);
+                            const sources = (result.extracted_sources || []).map((source) => source.document_name);
+                            appendNotice(
+                                result.answer || `Knowledge vault searched ${names.length} approved document(s).`
+                            );
+                            if (liveToolReplyTimer) clearTimeout(liveToolReplyTimer);
+                            liveToolReplyTimer = setTimeout(() => {
+                                if (!window._liveSpoke) {
+                                    speakText(
+                                        result.answer
+                                        || `Approved documents are ${names.join(', ') || 'none'}. `
+                                        + `Sources: ${sources.join(', ') || 'none'}.`
+                                    );
+                                }
+                            }, 1800);
+                            return;
+                        }
+                        if (msg.toolCall) {
+                            handleLiveToolCall(msg.toolCall);
+                            return;
+                        }
+                        if (msg.serverContent && msg.serverContent.modelTurn) {
+                            let hadAudio = false;
+                            for (const part of msg.serverContent.modelTurn.parts) {
+                                if (part.inlineData && part.inlineData.data) {
+                                    hadAudio = true;
+                                    if (liveToolReplyTimer) {
+                                        clearTimeout(liveToolReplyTimer);
+                                        liveToolReplyTimer = null;
+                                    }
+                                    enqueueLiveAudio(part.inlineData.data);
+                                }
+                                if (part.text) {
+                                    appendNotice('Assistant: ' + part.text);
+                                }
+                            }
+                            if (hadAudio && !window._liveSpoke) {
+                                window._liveSpoke = true;
+                                appendNotice('Assistant speaking...');
+                            }
+                        }
+                        if (msg.serverContent && (msg.serverContent.turnComplete || msg.serverContent.generationComplete)) {
+                            window._liveSpoke = false;
+                        }
+                        if (msg.serverContent && msg.serverContent.interrupted) {
+                            stopLiveAudioPlayback();
+                            window._liveSpoke = false;
+                            appendNotice('Assistant speech interrupted.');
+                        }
+                    } catch (e) { console.error('LIVE handle error:', e); }
+                };
+                if (ev.data instanceof Blob) {
+                    ev.data.text().then(processText).catch(e => console.error('Blob read error:', e));
+                } else if (typeof ev.data === 'string') {
+                    processText(ev.data);
+                } else {
+                    try { processText(new TextDecoder().decode(ev.data)); }
+                    catch (e) { console.error('Decode error:', e); }
+                }
+
+                async function handleLiveToolCall(toolCall) {
+                    const functionResponses = [];
+                    for (const call of (toolCall.functionCalls || [])) {
+                        if (call.name !== 'search_knowledge_base') {
+                            functionResponses.push({
+                                name: call.name,
+                                id: call.id,
+                                response: { error: 'Unknown tool.' }
+                            });
+                            continue;
+                        }
+
+                        const query = String(call.args?.query || '').trim();
+                        if (!query) {
+                            functionResponses.push({
+                                name: call.name,
+                                id: call.id,
+                                response: { error: 'A non-empty query is required.' }
+                            });
+                            continue;
+                        }
+
+                        try {
+                            const response = await fetch('/api/voice/knowledge', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ query })
+                            });
+                            const payload = await response.json();
+                            if (!response.ok) throw new Error(payload.detail || 'Knowledge search failed');
+
+                            const citations = (payload.citations || []).map((citation) => ({
+                                reference_id: citation.reference_id,
+                                document_name: citation.document_name,
+                                passage: String(citation.passage || '').slice(0, 700),
+                                score: citation.score
+                            }));
+                            const documentNames = (payload.documents || []).map((document) => document.name);
+                            const toolResult = JSON.stringify({
+                                answer: payload.answer,
+                                abstained: Boolean(payload.abstained),
+                                approved_documents: documentNames,
+                                citations
+                            });
+                            functionResponses.push({
+                                name: call.name,
+                                id: call.id,
+                                response: {
+                                    result: toolResult
+                                }
+                            });
+                            appendNotice(
+                                payload.abstained
+                                    ? `Knowledge vault found no strong match. Approved documents: ${documentNames.join(', ') || 'none'}.`
+                                    : `Knowledge vault searched ${citations.length} grounded source(s): ${citations.map((citation) => citation.document_name).join(', ')}.`
+                            );
+                            const fallbackAnswer = payload.abstained
+                                ? `I found no strong match. Approved documents are ${documentNames.join(', ') || 'none'}.`
+                                : `${payload.answer} Sources: ${citations.map((citation) => citation.document_name).join(', ')}.`;
+                            if (liveToolReplyTimer) clearTimeout(liveToolReplyTimer);
+                            liveToolReplyTimer = setTimeout(() => {
+                                if (!window._liveSpoke) speakText(fallbackAnswer);
+                            }, 1800);
+                        } catch (error) {
+                            functionResponses.push({
+                                name: call.name,
+                                id: call.id,
+                                response: { error: error.message }
+                            });
+                            appendNotice(`Knowledge search failed: ${error.message}`, true);
+                        }
+                    }
+
+                    if (liveWs && liveWs.readyState === WebSocket.OPEN) {
+                        liveWs.send(JSON.stringify({ toolResponse: { functionResponses } }));
+                    }
+                }
+            };
+            liveWs.onerror = (e) => {
+                appendNotice('Live voice connection error.', true);
+            };
+            liveWs.onclose = () => {
+                liveWs = null;
+                stopLiveMic();
+                stopLiveAudioPlayback();
+                appendNotice('Live voice disconnected.');
+            };
+        }
+
+        function _resampleTo16kLive(input, srcRate) {
+            if (srcRate === 16000) return input;
+            const ratio = srcRate / 16000;
+            const outLen = Math.round(input.length / ratio);
+            const out = new Float32Array(outLen);
+            for (let i = 0; i < outLen; i++) {
+                const srcIdx = i * ratio;
+                const i0 = Math.floor(srcIdx);
+                const i1 = Math.min(i0 + 1, input.length - 1);
+                const frac = srcIdx - i0;
+                out[i] = input[i0] * (1 - frac) + input[i1] * frac;
+            }
+            return out;
+        }
+        async function startLiveMic() {
+            try {
+                liveMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (e) {
+                appendNotice('Microphone access denied.', true);
+                return;
+            }
+            const _track = liveMicStream.getAudioTracks()[0];
+            const _settings = (_track && _track.getSettings) ? _track.getSettings() : {};
+            const _nativeRate = _settings.sampleRate || 48000;
+            liveAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: _nativeRate });
+            if (liveAudioCtx.state === 'suspended') liveAudioCtx.resume();
+            const source = liveAudioCtx.createMediaStreamSource(liveMicStream);
+            liveProcessor = liveAudioCtx.createScriptProcessor(4096, 1, 1);
+            liveProcessor.onaudioprocess = (e) => {
+                if (!liveWs || liveWs.readyState !== 1) return;
+                const input = e.inputBuffer.getChannelData(0);
+                const resampled = _resampleTo16kLive(input, liveAudioCtx.sampleRate);
+                const pcm = new Int16Array(resampled.length);
+                for (let i = 0; i < resampled.length; i++) {
+                    let s = Math.max(-1, Math.min(1, resampled[i]));
+                    pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+                const b64 = arrayBufferToBase64(pcm.buffer);
+                try {
+                    liveWs.send(JSON.stringify({
+                        realtimeInput: {
+                            audio: { mimeType: 'audio/pcm;rate=16000', data: b64 }
+                        }
+                    }));
+                } catch (err) { /* ignore */ }
+
+                // RMS-based speech detection with sustained-speech requirement
+                let sum = 0;
+                for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+                const rms = Math.sqrt(sum / input.length);
+
+                if (rms > 0.04) {
+                    window._liveSpeechFrames = (window._liveSpeechFrames || 0) + 1;
+                    window._liveSilenceFrames = 0;
+                    if (window._liveSpeechFrames >= 3 && !window._liveHasSpeech) {
+                        window._liveHasSpeech = true;
+                    }
+                } else {
+                    window._liveSpeechFrames = 0;
+                    if (window._liveHasSpeech) {
+                        window._liveSilenceFrames = (window._liveSilenceFrames || 0) + 1;
+                        if (window._liveSilenceFrames >= 12) {
+                            try {
+                                liveWs.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+                            } catch (e) {}
+                            window._liveHasSpeech = false;
+                            window._liveSilenceFrames = 0;
+                        }
+                    }
+                }
+            };
+            source.connect(liveProcessor);
+            liveProcessor.connect(liveAudioCtx.destination);
+        }
+
+        function stopLiveMic() {
+            if (liveProcessor) { try { liveProcessor.disconnect(); } catch(e){} liveProcessor = null; }
+            if (liveMicStream) { liveMicStream.getTracks().forEach(t => t.stop()); liveMicStream = null; }
+            if (liveAudioCtx) { try { liveAudioCtx.close(); } catch(e){} liveAudioCtx = null; }
+        }
+
+        function stopLiveVoice() {
+            window._liveHasSpeech = false;
+            window._liveSpeechFrames = 0;
+            window._liveSilenceFrames = 0;
+            if (liveToolReplyTimer) {
+                clearTimeout(liveToolReplyTimer);
+                liveToolReplyTimer = null;
+            }
+            if (liveWs) { try { liveWs.close(); } catch(e){} liveWs = null; }
+            stopLiveMic();
+            stopLiveAudioPlayback();
+            if (livePlaybackCtx) { try { livePlaybackCtx.close(); } catch(e){} livePlaybackCtx = null; }
+        }
+
+        function testLiveSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (ctx.state === 'suspended') ctx.resume();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 440;
+                gain.gain.value = 0.3;
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.5);
+                appendNotice('Test tone played (440Hz, 0.5s). If you heard nothing, check your speakers/volume.');
+            } catch (e) {
+                appendNotice('Test sound failed: ' + e.message, true);
+            }
+        }
+
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+            return btoa(binary);
+        }
+
+        function enqueueLiveAudio(b64) {
+            try {
+                const cleanB64 = (b64 || '').replace(/\s/g, '');
+                const binary = atob(cleanB64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                if (!bytes.byteLength) return;
+
+                const ctx = ensureLivePlaybackCtx();
+                const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
+                if (!pcm.length) return;
+                const float32 = new Float32Array(pcm.length);
+                for (let i = 0; i < pcm.length; i++) float32[i] = pcm[i] / 32768;
+
+                const buffer = ctx.createBuffer(1, float32.length, 24000);
+                buffer.getChannelData(0).set(float32);
+
+                const src = ctx.createBufferSource();
+                src.buffer = buffer;
+                src.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+                if (liveScheduledEndTime < now) {
+                    liveScheduledEndTime = now + 0.05;
+                }
+                src.start(liveScheduledEndTime);
+                liveScheduledEndTime += buffer.duration;
+                liveActiveSources.push(src);
+
+                src.onended = () => {
+                    liveActiveSources = liveActiveSources.filter(s => s !== src);
+                    if (liveActiveSources.length === 0 && liveScheduledEndTime <= ctx.currentTime) {
+                        window._liveSpoke = false;
+                    }
+                };
+            } catch (e) {
+                console.error('Audio playback error:', e);
+            }
+        }
+
+        // Text-to-Speech (TTS) Read Aloud
+        function speakText(text) {
+            if (!ttsSynth) return;
+            ttsSynth.cancel(); // Stop ongoing speech
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            ttsSynth.speak(utterance);
+        }
+
+        async function triggerExpertEscalation(query, reason) {
+            try {
+                const response = await fetch('/api/escalations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, reason })
+                });
+                const ticket = await response.json();
+                if (!response.ok) throw new Error(ticket.detail || 'Escalation could not be logged');
+                appendNotice(`Escalation #${ticket.id} recorded locally. No supervisor notification is configured.`);
+                refreshAnalytics();
+            } catch (error) {
+                appendNotice(error.message, true);
+            }
+        }
+
+        // Utility: Escape HTML. Quotes are escaped too because the result is
+        // interpolated into an inline onclick attribute.
+        function escapeHtml(text) {
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function initLiveDashboardCharts() {
+            if (!window.Chart) return;
+            Chart.defaults.color = '#94A3B8';
+            Chart.defaults.font.family = 'Inter';
+            const common = { responsive: true, maintainAspectRatio: false };
+            dashboardCharts = [
+                new Chart(document.getElementById('topQueriesChart'), {
+                    type: 'bar',
+                    data: { labels: [], datasets: [{ label: 'Retrieval relevance', data: [], backgroundColor: '#00E5FF', borderRadius: 3 }] },
+                    options: { ...common, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { min: 0, max: 1, grid: { color: '#2E3848' } } } }
+                }),
+                new Chart(document.getElementById('failuresChart'), {
+                    type: 'doughnut',
+                    data: { labels: ['Grounded', 'Abstained'], datasets: [{ data: [0, 0], backgroundColor: ['#10B981', '#F59E0B'] }] },
+                    options: { ...common, plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } } }
+                }),
+                new Chart(document.getElementById('confidenceChart'), {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ label: 'Retrieval relevance', data: [], borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.25 }] },
+                    options: { ...common, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { min: 0, max: 1, grid: { color: '#2E3848' } } } }
+                }),
+                new Chart(document.getElementById('downtimeChart'), {
+                    type: 'bar',
+                    data: { labels: ['Approved', 'Pending review'], datasets: [{ label: 'Documents', data: [0, 0], backgroundColor: ['#10B981', '#F59E0B'], borderRadius: 3 }] },
+                    options: { ...common, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { color: '#2E3848' } } } }
+                })
+            ];
+        }
+
+        async function refreshAnalytics() {
+            try {
+                const response = await fetch('/api/analytics');
+                if (!response.ok) throw new Error('Analytics unavailable');
+                const data = await response.json();
+                const pending = data.documents - data.approved_documents;
+                document.getElementById('metricQueries').textContent = data.queries;
+                document.getElementById('metricGrounded').textContent = `${data.grounded} grounded • ${data.abstained} abstained${data.conversational ? ` • ${data.conversational} chat` : ''}`;
+                document.getElementById('metricDocs').textContent = data.documents;
+                document.getElementById('metricReview').textContent = `${data.approved_documents} approved • ${pending} pending review`;
+                document.getElementById('metricScore').textContent = data.average_retrieval_score ? data.average_retrieval_score.toFixed(3) : '--';
+                document.getElementById('metricEscalations').textContent = data.escalations;
+                document.getElementById('headerConfidence').textContent = data.average_retrieval_score ? data.average_retrieval_score.toFixed(3) : '--';
+                if (!dashboardCharts.length) return;
+
+                const recent = data.recent_queries.slice().reverse();
+                dashboardCharts[0].data.labels = recent.map(item => item.query.length > 24 ? `${item.query.slice(0, 21)}...` : item.query);
+                dashboardCharts[0].data.datasets[0].data = recent.map(item => item.retrieval_score);
+                dashboardCharts[1].data.datasets[0].data = [data.grounded, data.abstained];
+                dashboardCharts[2].data.labels = recent.map((_, index) => index + 1);
+                dashboardCharts[2].data.datasets[0].data = recent.map(item => item.retrieval_score);
+                dashboardCharts[3].data.datasets[0].data = [data.approved_documents, pending];
+                dashboardCharts.forEach(chart => chart.update());
+            } catch (error) {
+                document.getElementById('backendFooter').textContent = 'Backend unavailable • analytics not loaded';
+            }
+        }
+
+    </script>
+</body>
+</html>

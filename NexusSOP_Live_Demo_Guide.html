@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NexusSOP Live Demo Guide</title>
+<style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; color: #18242b; background: #e8eceb; font-family: "Segoe UI", Arial, sans-serif; }
+body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 210mm; height: 297mm; margin: 10mm auto; padding: 15mm 16mm; background: #fbfcfa; overflow: hidden; position: relative; }
+.page + .page { page-break-before: always; }
+.eyebrow { color: #d75d18; font-size: 9pt; letter-spacing: 1.1px; font-weight: 800; text-transform: uppercase; }
+h1 { margin: 5mm 0 2mm; color: #132832; font-size: 27pt; line-height: 1.08; }
+h2 { margin: 0 0 4mm; color: #132832; font-size: 17pt; }
+h3 { margin: 0 0 2mm; font-size: 11pt; color: #132832; }
+p { margin: 0 0 2.5mm; font-size: 9.5pt; line-height: 1.45; }
+.small { color: #52636a; font-size: 8.3pt; }
+.lead { max-width: 160mm; color: #43565e; font-size: 11pt; }
+.topline { display: flex; justify-content: space-between; align-items: center; padding-bottom: 3mm; border-bottom: 1px solid #d9e1df; }
+.pill { padding: 2mm 3mm; border: 1px solid #d4dedb; border-radius: 3px; color: #37524e; font-size: 8pt; font-weight: 700; }
+.promise { margin: 6mm 0; padding: 4mm 5mm; border-left: 4px solid #e66b22; background: #f2f5f2; font-size: 10pt; font-weight: 700; }
+.section-label { margin: 5mm 0 3mm; color: #d75d18; font-size: 8pt; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
+.flow { display: grid; grid-template-columns: 1fr; justify-items: center; }
+.node { width: 100%; padding: 3mm 4mm; border: 1px solid #cbd8d5; border-radius: 4px; background: #fff; }
+.node.start { border-color: #1d6255; background: #eaf4f0; }
+.node.stop { border-color: #e3a16f; background: #fff4e9; }
+.node strong { display: block; margin-bottom: 1mm; color: #193c42; font-size: 9.5pt; }
+.node span { display: block; color: #52636a; font-size: 8.4pt; line-height: 1.35; }
+.arrow { height: 7mm; color: #d75d18; font-size: 15pt; font-weight: 800; line-height: 7mm; }
+.branches { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+.branch-label { margin-bottom: 1.5mm; color: #52636a; font-size: 7.5pt; font-weight: 800; text-transform: uppercase; }
+.branch .node { height: 100%; }
+.close { margin-top: 6mm; padding: 4mm 5mm; color: white; background: #183a3d; border-radius: 4px; }
+.close strong { display: block; margin-bottom: 1mm; color: #ffd2a7; font-size: 9pt; }
+.close p { margin: 0; font-size: 9pt; }
+.footer { position: absolute; bottom: 8mm; left: 16mm; right: 16mm; display: flex; justify-content: space-between; border-top: 1px solid #d9e1df; padding-top: 2mm; color: #738187; font-size: 7.5pt; }
+.two-col { display: grid; grid-template-columns: 1.05fr .95fr; gap: 6mm; }
+.panel { padding: 4mm; border: 1px solid #d9e1df; border-radius: 4px; background: #fff; }
+.steps { list-style: none; padding: 0; margin: 0; }
+.steps li { display: grid; grid-template-columns: 8mm 1fr; gap: 2mm; margin: 0 0 3.2mm; }
+.num { width: 7mm; height: 7mm; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #1d6255; font-size: 8pt; font-weight: 800; }
+.steps p { margin: 0; font-size: 8.7pt; }
+.steps strong { color: #193c42; }
+.quote { margin-top: 1.5mm; padding: 2.5mm 3mm; border-left: 3px solid #e66b22; background: #f7f5ef; color: #34464c; font-size: 8.4pt; line-height: 1.4; }
+.checks { padding-left: 4mm; margin: 0; }
+.checks li { margin: 0 0 2mm; font-size: 8.5pt; line-height: 1.35; }
+.code { padding: 3mm; color: #eaf4f0; background: #183a3d; border-radius: 3px; font: 8pt/1.45 Consolas, monospace; overflow-wrap: anywhere; }
+.note { margin-top: 3mm; padding: 3mm; background: #fff4e9; border: 1px solid #f0d3bb; border-radius: 3px; color: #61402a; font-size: 8.1pt; line-height: 1.4; }
+.timeline { display: grid; grid-template-columns: 22mm 1fr; gap: 2mm 3mm; align-items: start; }
+.time { color: #d75d18; font-size: 8pt; font-weight: 800; }
+.timeline p { font-size: 8.5pt; margin: 0; }
+@media screen { .page { box-shadow: 0 8px 30px #12242a22; } }
+@media print { html, body { background: white; } .page { margin: 0; box-shadow: none; } }
+</style>
+</head>
+<body>
+<section class="page">
+  <div class="topline"><div class="eyebrow">NexusSOP / Hackathon Demo</div><div class="pill">2-minute live walkthrough</div></div>
+  <h1>Live Demo<br>Playbook</h1>
+  <p class="lead">A simple presentation path that proves the product's real behavior: retrieve evidence, refuse unsafe requests, and make activity reviewable.</p>
+  <div class="promise">Core message: NexusSOP shows its sources, and it does not turn missing evidence into equipment instructions.</div>
+  <div class="section-label">The live flow</div>
+  <div class="flow">
+    <div class="node start"><strong>START / App is ready</strong><span>Open http://127.0.0.1:8000/ and confirm the status says API: ONLINE.</span></div>
+    <div class="arrow">↓</div>
+    <div class="node"><strong>Ask a knowledge question</strong><span>Click "Show cited evidence". Backend checks safety intent, searches approved documents, and returns the matching passage.</span></div>
+    <div class="arrow">↓</div>
+    <div class="node"><strong>Is it a work or safety-critical request?</strong><span>Example: "How do I repair a PLC fault?" Operational intent is refused before retrieval.</span></div>
+    <div class="arrow">↓</div>
+    <div class="branches">
+      <div class="branch"><div class="branch-label">No / informational</div><div class="node"><strong>Evidence found?</strong><span>Yes: show verbatim passage, document name, and lexical relevance. No: abstain for insufficient evidence.</span></div></div>
+      <div class="branch"><div class="branch-label">Yes / operational</div><div class="node stop"><strong>Refuse + escalate</strong><span>No work steps. Point to the approved site SOP and qualified supervisor; optionally log a local escalation.</span></div></div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="node"><strong>Supervisor Dashboard</strong><span>Show live grounded/abstained counts, document review totals, escalation count, and CSV export.</span></div>
+  </div>
+  <div class="close"><strong>Close with an honest claim</strong><p>"This prototype demonstrates traceable retrieval and safety-oriented abstention. It is not certified for real plant operations; our next step is evaluation with authorized documents and domain experts."</p></div>
+  <div class="footer"><span>NexusSOP | Evidence-first industrial assistant</span><span>01 / FLOW</span></div>
+</section>
+<section class="page">
+  <div class="topline"><div class="eyebrow">Presenter checklist</div><div class="pill">Follow the clicks, not a slide deck</div></div>
+  <h2>Step-by-step demo</h2>
+  <div class="two-col">
+    <div>
+      <div class="panel">
+        <h3>Before the judges arrive</h3>
+        <ol class="steps">
+          <li><span class="num">1</span><p><strong>Start the backend.</strong> Double-click <code>run.bat</code>. Keep its terminal window open.</p></li>
+          <li><span class="num">2</span><p><strong>Open the app.</strong> Visit <code>http://127.0.0.1:8000/</code>. Do not present the project-folder listing.</p></li>
+          <li><span class="num">3</span><p><strong>Check readiness.</strong> Wait until the header reads <code>API: ONLINE</code> and the Knowledge Vault shows 3 demo documents.</p></li>
+        </ol>
+        <div class="note"><strong>Important:</strong> use only the included synthetic knowledge base in the presentation. Never upload confidential or real plant procedures to an unapproved service.</div>
+      </div>
+      <div class="panel" style="margin-top:4mm">
+        <h3>Optional: show review-gated upload</h3>
+        <p class="small">Adds about 30-45 seconds. Prepare a small synthetic TXT file before presenting.</p>
+        <div class="code">Shift handover requests should be directed to the duty supervisor through the site's established escalation channel.</div>
+        <ol class="checks" style="margin-top:3mm">
+          <li>Upload the file from Knowledge Vault. Show it is pending and excluded from search.</li>
+          <li>Click "Approve for demo retrieval". Explain this local demo action is not authenticated.</li>
+          <li>Ask: "Where should shift handover requests be directed?" Show the returned source.</li>
+        </ol>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h3>Timed talk track</h3>
+        <div class="timeline">
+          <div class="time">0:00-0:15</div><p><strong>Say:</strong> "Industrial teams lose time searching manuals, and unsupported instructions can create safety risks. NexusSOP is designed to make evidence visible and missing evidence explicit."</p>
+          <div class="time">0:15-0:40</div><p><strong>Click:</strong> "Show cited evidence".<br><strong>Say:</strong> "This is retrieved from an approved demo source. The passage is shown verbatim; the score is lexical relevance, not a confidence or correctness probability."</p>
+          <div class="time">0:40-1:05</div><p><strong>Click:</strong> "Test safety refusal".<br><strong>Say:</strong> "For a PLC repair request, it does not invent steps. It refuses and directs the user to the current site SOP and a qualified supervisor."</p>
+          <div class="time">1:05-1:20</div><p><strong>Click:</strong> "Log escalation", then "Supervisor Dashboard".<br><strong>Say:</strong> "The escalation and request outcomes are visible in the local supervisor view."</p>
+          <div class="time">1:20-1:35</div><p><strong>Close:</strong> give the honest limitation statement from page 1. Keep the upload flow as an optional extension if time allows.</p>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:4mm">
+        <h3>If something goes wrong</h3>
+        <ul class="checks">
+          <li><strong>Folder listing appears:</strong> open <code>http://127.0.0.1:8000/</code>, not the workspace folder.</li>
+          <li><strong>API is offline:</strong> check the <code>run.bat</code> terminal for an error; restart it and reload the page.</li>
+          <li><strong>No evidence found:</strong> use the built-in "Show cited evidence" prompt exactly.</li>
+          <li><strong>Charts are blank:</strong> explain the metrics and continue; chart assets require internet access.</li>
+        </ul>
+        <div class="note"><strong>Do not claim:</strong> downtime reduction, production accuracy, certified safety, or real plant deployment. Those have not been measured or validated.</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>NexusSOP | Judge-ready presenter notes</span><span>02 / DEMO</span></div>
+</section>
+</body>
+</html>

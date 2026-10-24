@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Audio Chat - Gemini 3.8 Live</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0b1020; color: #e6e9f2; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; padding: 24px;
+  }
+  .card {
+    width: 100%; max-width: 720px; background: #131a2e; border: 1px solid #263056;
+    border-radius: 16px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,.4);
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .sub { color: #9aa4c7; font-size: 13px; margin-bottom: 20px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    background: #3b6cff; color: #fff; border: 0; padding: 12px 20px; border-radius: 10px;
+    font-size: 15px; font-weight: 600; cursor: pointer; transition: transform .05s, background .2s;
+  }
+  .btn:hover { background: #2f57e0; }
+  .btn:active { transform: scale(.98); }
+  .btn.stop { background: #e24b4b; }
+  .btn.stop:hover { background: #c93a3a; }
+  .btn.secondary { background: #2a3358; }
+  .status {
+    display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
+    border-radius: 999px; background: #1c2340; font-size: 13px; color: #9aa4c7;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; }
+  .dot.live { background: #34d399; box-shadow: 0 0 8px #34d399; }
+  .dot.err { background: #f87171; }
+  .dot.idle { background: #6b7280; }
+  .dot.working { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+  .dot.speaking { background: #a78bfa; box-shadow: 0 0 8px #a78bfa; }
+  .dot.listening { background: #34d399; box-shadow: 0 0 8px #34d399; }
+  .log {
+    margin-top: 16px; background: #0a0f1e; border: 1px solid #263056;
+    border-radius: 10px; padding: 12px; height: 260px; overflow-y: auto;
+    font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5;
+  }
+  .log div { margin-bottom: 4px; }
+  .log .user { color: #7dd3fc; }
+  .log .assistant { color: #a7f3d0; }
+  .log .system { color: #9aa4c7; }
+  .log .error { color: #fca5a5; }
+  .meter { display: flex; gap: 3px; align-items: flex-end; height: 28px; margin-left: 8px; }
+  .meter span { width: 4px; background: #3b6cff; border-radius: 2px; transition: height .1s; }
+  .field { display: flex; gap: 8px; margin-top: 12px; }
+  .field input {
+    flex: 1; background: #0a0f1e; border: 1px solid #263056; color: #e6e9f2;
+    padding: 10px 12px; border-radius: 8px; font-size: 14px;
+  }
+  .info { margin-top: 14px; font-size: 12px; color: #9aa4c7; }
+  code { background: #1c2340; padding: 1px 6px; border-radius: 4px; }
+  .orb {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: #1c2340; border: 2px solid #263056;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px; transition: all 0.3s ease;
+    position: relative; overflow: hidden;
+  }
+  .orb.inner-el { width: 28px; height: 28px; border-radius: 50%; }
+  .orb.idle .inner-el { background: #6b7280; box-shadow: 0 0 12px #6b7280; }
+  .orb.listening .inner-el { background: #34d399; box-shadow: 0 0 16px #34d399; }
+  .orb.working .inner-el { background: #fbbf24; box-shadow: 0 0 16px #fbbf24; }
+  .orb.speaking .inner-el { background: #a78bfa; box-shadow: 0 0 16px #a78bfa; }
+  .orb.err .inner-el { background: #f87171; box-shadow: 0 0 16px #f87171; }
+  .orb .pulse {
+    position: absolute; width: 100%; height: 100%; border-radius: 50%;
+    border: 2px solid currentColor; opacity: 0;
+    animation: orbPulse 2s infinite;
+  }
+  .orb.listening .pulse { animation: orbPulse 1.5s infinite; }
+  @keyframes orbPulse {
+    0% { transform: scale(0.8); opacity: 0.7; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Live Audio Chat</h1>
+    <div class="sub">Real-time voice chat via Gemini <code id="modelName">gemini-3.8-live</code> (audio in / audio out)</div>
+
+    <div class="orb idle" id="orb">
+      <div class="inner-el" id="orbInner"></div>
+      <div class="pulse"></div>
+    </div>
+
+    <div class="row">
+      <button id="micBtn" class="btn">Start Live Chat</button>
+      <div class="status"><span id="dot" class="dot idle"></span><span id="statusText">Idle</span></div>
+      <div class="meter" id="meter"></div>
+    </div>
+
+    <div class="field">
+      <input id="textInput" type="text" placeholder="Type a message..." />
+      <button id="sendBtn" class="btn secondary">Send</button>
+      <label for="liveImageUpload" class="btn secondary" title="Attach an image for the model to analyze">
+        <i class="fa-solid fa-image"></i> Image
+      </label>
+      <input id="liveImageUpload" type="file" accept="image/*" class="hidden" onchange="handleLiveImageUpload(event)">
+    </div>
+
+    <div id="liveImagePreview" class="hidden flex items-center space-x-2 bg-industrial-900 p-2 rounded border border-industrial-cyan text-xs mt-2">
+      <img id="liveImagePreviewThumb" src="" class="w-8 h-8 object-cover rounded border border-industrial-700" alt="Preview">
+      <span id="liveImagePreviewName" class="font-mono text-slate-200 block truncate max-w-xs">image.png</span>
+      <button onclick="removeLiveImage()" class="text-slate-400 hover:text-industrial-danger px-2"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div id="log" class="log"></div>
+
+    <div class="info">
+      Model: <code>gemini-3.8-live</code> &middot; Input PCM 16 kHz mono &middot; Output PCM 24 kHz mono &middot;
+      Microphone access required. Works in Chrome/Edge.
+    </div>
+  </div>
+
+<script>
+// ===== Configuration =====
+// The permanent Gemini credential stays on the backend. The browser connects
+// to the same-origin relay at /api/voice/ws.
+const DEFAULT_MODEL = "gemini-3.8-live";
+const DEFAULT_WS_PATH = "/api/voice/ws";
+
+// Orb states (Stonic AI pattern): idle | listening | working | speaking | err
+let orbState = "idle";
+
+// Stonic-style session management
+let model = DEFAULT_MODEL;
+let wsPath = DEFAULT_WS_PATH;
+let currentLiveImage = null; // base64 data URL of attached image
+let sessionId = null;         // Gemini Live session id (tracked like Stonic's session.create)
+let ws = null;
+let reconnectTimer = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+let isUserStopped = false;
+
+let audioCtx = null;
+let playbackCtx = null;
+let micStream = null;
+let processor = null;
+let sourceNode = null;
+
+const $ = (id) => document.getElementById(id);
+const logEl = $("log");
+const micBtn = $("micBtn");
+const statusText = $("statusText");
+const dot = $("dot");
+const orb = $("orb");
+const orbInner = $("orbInner");
+
+function log(msg, cls = "system") {
+  const d = document.createElement("div");
+  d.className = cls;
+  d.textContent = msg;
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setOrb(state) {
+  orbState = state;
+  orb.className = "orb " + state;
+  orbInner.className = "inner-el";
+  dot.className = "dot " + state;
+  const labels = {
+    idle: "Idle",
+    listening: "Listening",
+    working: "Working",
+    speaking: "Speaking",
+    err: "Error"
+  };
+  statusText.textContent = labels[state] || state;
+}
+
+function b64FromArrayBuffer(buf) {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+function arrayBufferFromB64(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+// ===== Live Image Attachment =====
+function handleLiveImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    currentLiveImage = e.target.result;
+    document.getElementById('liveImagePreviewThumb').src = currentLiveImage;
+    document.getElementById('liveImagePreviewName').textContent = file.name;
+    document.getElementById('liveImagePreview').classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function removeLiveImage() {
+  currentLiveImage = null;
+  document.getElementById('liveImagePreview').classList.add('hidden');
+}
+
+// Load non-secret voice configuration from the backend.
+async function loadConfig() {
+  try {
+    const r = await fetch("/api/voice/config", { cache: "no-store" });
+    if (!r.ok) throw new Error(`Voice config HTTP ${r.status}`);
+    if (r.ok) {
+      const cfg = await r.json();
+      if (cfg.model) model = cfg.model;
+      if (cfg.ws_url) wsPath = cfg.ws_url;
+      $("modelName").textContent = model;
+      log("Loaded voice config from backend.", "system");
+      return true;
+    }
+  } catch (e) {
+    log(`Could not load voice configuration. Open this page through the running backend. (${e.message})`, "error");
+  }
+  return false;
+}
+
+// ===== Gapless Audio Playback =====
+let scheduledEndTime = 0;
+let activeSources = [];
+let isAssistantSpeaking = false;
+
+async function ensurePlaybackCtx() {
+  if (!playbackCtx || playbackCtx.state === "closed") {
+    playbackCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (playbackCtx.state === "suspended") {
+    await playbackCtx.resume();
+  }
+  return playbackCtx;
+}
+
+function stopPlayback() {
+  activeSources.forEach(s => { try { s.stop(); } catch (e) {} });
+  activeSources = [];
+  scheduledEndTime = 0;
+  isAssistantSpeaking = false;
+}
+
+function enqueueAudio(b64, mimeType = "") {
+  try {
+    const bytes = arrayBufferFromB64(b64);
+    if (!bytes.byteLength) return;
+
+    let sampleRate = 24000;
+    const rateMatch = mimeType.match(/rate=(\d+)/);
+    if (rateMatch) sampleRate = parseInt(rateMatch[1], 10);
+
+    const pcm = new Int16Array(bytes.length / 2);
+    for (let i = 0; i < pcm.length; i++) {
+      pcm[i] = (bytes[2 * i + 1] << 8) | bytes[2 * i];
+      if (pcm[i] >= 32768) pcm[i] -= 65536;
+    }
+    if (!pcm.length) return;
+
+    const float32 = new Float32Array(pcm.length);
+    for (let i = 0; i < pcm.length; i++) float32[i] = pcm[i] / 32768;
+
+    // Use playbackCtx (already resumed in start()) or create a new one
+    const ctx = playbackCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === "suspended") {
+      ctx.resume(); // fire-and-forget; browser will resume on next user gesture
+    }
+    const buffer = ctx.createBuffer(1, float32.length, sampleRate);
+    buffer.getChannelData(0).set(float32);
+
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    if (scheduledEndTime < now) scheduledEndTime = now + 0.05;
+    src.start(scheduledEndTime);
+    scheduledEndTime += buffer.duration;
+    activeSources.push(src);
+
+    src.onended = () => {
+      activeSources = activeSources.filter(s => s !== src);
+      if (activeSources.length === 0 && scheduledEndTime <= ctx.currentTime) {
+        isAssistantSpeaking = false;
+        setOrb("listening");
+      }
+    };
+
+    if (!isAssistantSpeaking) {
+      isAssistantSpeaking = true;
+      setOrb("speaking");
+    }
+  } catch (e) {
+    console.error("Playback error:", e);
+    log("Playback error: " + e.message, "error");
+  }
+}
+
+// ===== Mic capture with speech detection =====
+function resampleTo16k(input, srcRate) {
+  if (srcRate === 16000) return input;
+  const ratio = srcRate / 16000;
+  const outLen = Math.round(input.length / ratio);
+  const out = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const srcIdx = i * ratio;
+    const i0 = Math.floor(srcIdx);
+    const i1 = Math.min(i0 + 1, input.length - 1);
+    const frac = srcIdx - i0;
+    out[i] = input[i0] * (1 - frac) + input[i1] * frac;
+  }
+  return out;
+}
+
+let speechFrameCount = 0;
+let silenceFrameCount = 0;
+let hasSpeech = false;
+const SPEECH_THRESHOLD = 0.04;
+const SPEECH_FRAMES_NEEDED = 3;
+const SILENCE_FRAMES_NEEDED = 12;
+
+async function startMic() {
+  micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const track = micStream.getAudioTracks()[0];
+  const settings = (track && track.getSettings) ? track.getSettings() : {};
+  const nativeRate = settings.sampleRate || 48000;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: nativeRate });
+  if (audioCtx.state === "suspended") await audioCtx.resume();
+  log(`Mic active (${nativeRate} Hz).`, "system");
+  sourceNode = audioCtx.createMediaStreamSource(micStream);
+  processor = audioCtx.createScriptProcessor(4096, 1, 0);
+  processor.onaudioprocess = (e) => {
+    if (!ws || ws.readyState !== 1) return;
+    const input = e.inputBuffer.getChannelData(0);
+    const resampled = resampleTo16k(input, audioCtx.sampleRate);
+    const pcm = new Int16Array(resampled.length);
+    for (let i = 0; i < resampled.length; i++) {
+      let s = Math.max(-1, Math.min(1, resampled[i]));
+      pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    const b64 = b64FromArrayBuffer(pcm.buffer);
+    try {
+      ws.send(JSON.stringify({
+        realtimeInput: {
+          audio: { mimeType: "audio/pcm;rate=16000", data: b64 }
+        }
+      }));
+    } catch (err) {
+      log("Mic send error: " + err.message, "error");
+    }
+
+    let sum = 0;
+    for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+    const rms = Math.sqrt(sum / input.length);
+    updateMeter(Math.min(1, rms * 8));
+
+    if (rms > SPEECH_THRESHOLD) {
+      speechFrameCount++;
+      silenceFrameCount = 0;
+      if (speechFrameCount >= SPEECH_FRAMES_NEEDED && !hasSpeech) {
+        hasSpeech = true;
+        setOrb("listening");
+      }
+    } else {
+      speechFrameCount = 0;
+      if (hasSpeech) {
+        silenceFrameCount++;
+        if (silenceFrameCount >= SILENCE_FRAMES_NEEDED) {
+          try {
+            ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+          } catch (e) {}
+          hasSpeech = false;
+          silenceFrameCount = 0;
+        }
+      }
+    }
+  };
+  sourceNode.connect(processor);
+}
+
+function updateMeter(level) {
+  const meter = $("meter");
+  if (!meter.children.length) {
+    for (let i = 0; i < 8; i++) {
+      const s = document.createElement("span");
+      s.style.height = "4px";
+      meter.appendChild(s);
+    }
+  }
+  const bars = meter.children;
+  for (let i = 0; i < bars.length; i++) {
+    const h = 4 + Math.round(level * 24 * (0.5 + Math.random() * 0.5));
+    bars[i].style.height = Math.min(28, h) + "px";
+  }
+}
+
+function stopMic() {
+  if (processor) { try { processor.disconnect(); } catch (e) {} processor = null; }
+  if (sourceNode) { try { sourceNode.disconnect(); } catch (e) {} sourceNode = null; }
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (audioCtx) { try { audioCtx.close(); } catch (e) {} audioCtx = null; }
+}
+
+// ===== WebSocket lifecycle (Stonic AI pattern: connect → session.create → prompt.submit → streamed events) =====
+async function start() {
+  if (ws) return;
+  isUserStopped = false;
+
+  // Resume playback context on user gesture so audio output is audible.
+  await ensurePlaybackCtx();
+
+  if (!await loadConfig()) { setOrb("err"); return; }
+
+  log("Requesting microphone access...", "system");
+  setOrb("working");
+  try {
+    await startMic();
+  } catch (e) {
+    log("Microphone access denied: " + e.message, "error");
+    setOrb("err");
+    // Fall back to text-only mode: still allow WebSocket connection
+    log("Falling back to text-only mode.", "system");
+  }
+
+  const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${wsProtocol}//${location.host}${wsPath}`;
+  log("Connecting to Gemini Live...", "system");
+  setOrb("working");
+  try {
+    ws = new WebSocket(wsUrl);
+  } catch (e) {
+    log("WebSocket failed: " + e.message, "error");
+    stopMic();
+    setOrb("err");
+    return;
+  }
+
+  // Connection timeout
+  const connectTimeout = setTimeout(() => {
+    if (ws && ws.readyState !== 1) {
+      log("WebSocket connection timed out.", "error");
+      ws.close();
+      stopMic();
+      setOrb("err");
+    }
+  }, 10000);
+
+  ws.onopen = () => {
+    clearTimeout(connectTimeout);
+    reconnectAttempts = 0;
+    if (playbackCtx && playbackCtx.state === "suspended") playbackCtx.resume();
+    // Stonic pattern: session setup handshake
+    const setup = {
+      setup: {
+        model: `models/${model}`,
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: "Aoede" }
+            }
+          }
+        },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        systemInstruction: {
+          parts: [{
+            text: "You are a friendly, concise voice assistant. For questions about uploaded "
+              + "documents, the knowledge vault, policies, evidence, or source details, use "
+              + "search_knowledge_base before answering. The backend executes it against "
+              + "approved extracted document text."
+          }]
+        },
+        tools: [{
+          functionDeclarations: [{
+            name: "search_knowledge_base",
+            description: "Search approved uploaded documents and extracted OCR/text. Use for every knowledge-vault question.",
+            parameters: {
+              type: "OBJECT",
+              properties: {
+                query: { type: "STRING", description: "The user's document or knowledge question." }
+              },
+              required: ["query"]
+            }
+          }]
+        }]
+      }
+    };
+    ws.send(JSON.stringify(setup));
+    sessionId = "gemini-live-" + Date.now();
+    log("Connected. Session " + sessionId, "system");
+    setOrb(micStream ? "listening" : "working");
+    micBtn.textContent = "Stop Live Chat";
+    micBtn.classList.add("stop");
+  };
+
+  ws.onmessage = async (ev) => {
+    try {
+      let msg;
+      if (ev.data instanceof ArrayBuffer) {
+        const text = new TextDecoder().decode(ev.data);
+        if (!text || text.trim() === "{}") return;
+        msg = JSON.parse(text);
+      } else if (ev.data instanceof Blob) {
+        const arrayBuffer = await ev.data.arrayBuffer();
+        const text = new TextDecoder().decode(arrayBuffer);
+        if (!text || text.trim() === "{}") return;
+        msg = JSON.parse(text);
+      } else if (typeof ev.data === "string") {
+        if (!ev.data || ev.data.trim() === "{}") return;
+        msg = JSON.parse(ev.data);
+      } else {
+        return;
+      }
+
+      if (msg.setupComplete) {
+        log("Session ready. Speak or type a message.", "system");
+        setOrb(micStream ? "listening" : "working");
+        return;
+      }
+      if (msg.serverContent) {
+        const sc = msg.serverContent;
+        if (sc.modelTurn && sc.modelTurn.parts) {
+          setOrb("working");
+          for (const part of sc.modelTurn.parts) {
+            if (part.inlineData && part.inlineData.data) {
+              enqueueAudio(part.inlineData.data, part.inlineData.mimeType || "");
+            }
+            if (part.text) {
+              log("Assistant: " + part.text, "assistant");
+            }
+          }
+        }
+        if (sc.turnComplete || sc.generationComplete) {
+          log("Turn complete.", "system");
+          setOrb(micStream ? "listening" : "working");
+        }
+        if (sc.interrupted) {
+          stopPlayback();
+          log("Assistant interrupted.", "system");
+          setOrb(micStream ? "listening" : "working");
+        }
+        if (sc.inputTranscription && sc.inputTranscription.text) {
+          log("You: " + sc.inputTranscription.text, "user");
+        }
+        if (sc.outputTranscription && sc.outputTranscription.text) {
+          log("Assistant: " + sc.outputTranscription.text, "assistant");
+        }
+      }
+      if (msg.error) {
+        log("Server error: " + JSON.stringify(msg.error), "error");
+        setOrb("err");
+      }
+    } catch (e) {
+      console.error("onmessage error:", e);
+      log("Message parse error: " + e.message, "error");
+    }
+  };
+
+  ws.onerror = (e) => {
+    log("WebSocket error.", "error");
+    setOrb("err");
+  };
+
+  ws.onclose = (ev) => {
+    clearTimeout(connectTimeout);
+    log(`Disconnected (code ${ev.code}).`, "system");
+    setOrb("err");
+    ws = null;
+    stopMic();
+    stopPlayback();
+    micBtn.textContent = "Start Live Chat";
+    micBtn.classList.remove("stop");
+    // Stonic pattern: auto-reconnect with backoff unless user stopped
+    if (!isUserStopped && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+      log(`Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`, "system");
+      reconnectTimer = setTimeout(start, delay);
+    }
+  };
+}
+
+function stop() {
+  isUserStopped = true;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  hasSpeech = false;
+  speechFrameCount = 0;
+  silenceFrameCount = 0;
+  sessionId = null;
+  if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+  stopMic();
+  stopPlayback();
+  if (playbackCtx) { try { playbackCtx.close(); } catch (e) {} playbackCtx = null; }
+  setOrb("idle");
+  micBtn.textContent = "Start Live Chat";
+  micBtn.classList.remove("stop");
+  log("Stopped.", "system");
+}
+
+micBtn.addEventListener("click", () => {
+  if (ws) stop(); else start();
+});
+
+$("sendBtn").addEventListener("click", () => {
+  const t = $("textInput").value.trim();
+  if (!t && !currentLiveImage) return;
+  if (!ws || ws.readyState !== 1) { log("Not connected.", "error"); return; }
+  if (t) {
+    ws.send(JSON.stringify({ realtimeInput: { text: t } }));
+  }
+  if (currentLiveImage) {
+    const b64 = currentLiveImage.split(",")[1];
+    const mime = currentLiveImage.split(":")[1].split(";")[0];
+    ws.send(JSON.stringify({
+      realtimeInput: { video: { mimeType: mime, data: b64 } }
+    }));
+  }
+  log("You: " + (t || "[image]"), "user");
+  setOrb("working");
+  $("textInput").value = "";
+  removeLiveImage();
+});
+
+$("textInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("sendBtn").click();
+});
+
+window.addEventListener("beforeunload", stop);
+
+// build meter
+updateMeter(0);
+
+setOrb("idle");
+log("Ready. Click 'Start Live Chat' and allow microphone.", "system");
+</script>
+</body>
+</html>

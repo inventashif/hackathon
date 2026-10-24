@@ -1,0 +1,3 @@
+- generic [active] [ref=e1]:
+  - heading "502 Bad Gateway" [level=1] [ref=e2]
+  - paragraph [ref=e3]: "[Errno 111] Connect call failed ('127.0.0.1', 8031)"

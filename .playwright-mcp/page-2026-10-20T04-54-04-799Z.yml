@@ -1,0 +1,109 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: 
+      - generic [ref=e7]:
+        - heading "Nexus SOP Evidence LOCAL RETRIEVAL" [level=1] [ref=e8]:
+          - text: Nexus
+          - generic [ref=e9]: SOP
+          - text: Evidence
+          - generic [ref=e10]: LOCAL RETRIEVAL
+        - paragraph [ref=e11]: Source-grounded industrial knowledge assistant
+    - generic [ref=e12]:
+      - text: 
+      - generic [ref=e13]:
+        - generic [ref=e14]: "API: ONLINE"
+        - generic [ref=e19]: "|"
+        - generic [ref=e20]: "Avg. relevance: 0.519"
+      - generic [ref=e21]:
+        - button " Assistant" [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: 
+          - generic [ref=e24]: Assistant
+        - button " Supervisor Dashboard" [ref=e25] [cursor=pointer]:
+          - generic [ref=e26]: 
+          - generic [ref=e27]: Supervisor Dashboard
+  - generic [ref=e28]:
+    - complementary [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: 
+          - heading "Knowledge Vault" [level=2] [ref=e33]
+        - generic [ref=e34]: 3 docs • 3 approved
+      - generic [ref=e36]:
+        - generic [ref=e37]: 
+        - textbox "Search manuals, SOPs, tags..." [ref=e38]
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - button "system_guide.md Demo knowledge base" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: system_guide.md
+            - generic [ref=e43]: Demo knowledge base
+          - paragraph [ref=e44]: Approved for retrieval
+        - generic [ref=e45]:
+          - button "evidence_policy.md Demo knowledge base" [ref=e46] [cursor=pointer]:
+            - generic [ref=e47]: evidence_policy.md
+            - generic [ref=e48]: Demo knowledge base
+          - paragraph [ref=e49]: Approved for retrieval
+        - generic [ref=e50]:
+          - button "document_review.md Demo knowledge base" [ref=e51] [cursor=pointer]:
+            - generic [ref=e52]: document_review.md
+            - generic [ref=e53]: Demo knowledge base
+          - paragraph [ref=e54]: Approved for retrieval
+      - generic [ref=e56] [cursor=pointer]:
+        - generic [ref=e57]: 
+        - generic [ref=e58]: Add Source Document
+        - generic [ref=e59]: Text PDF, TXT, or Markdown • 10 MB max
+    - main [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e63]: "Interaction Mode:"
+          - generic [ref=e64]:
+            - button "Text Chat" [ref=e65] [cursor=pointer]
+            - button "Hands-Free Voice" [ref=e66] [cursor=pointer]
+            - button "Live Voice (Gemini)" [ref=e67] [cursor=pointer]
+            - button "Test Sound" [ref=e68] [cursor=pointer]
+            - button "Image analysis unavailable" [disabled] [ref=e69]
+        - text: 
+        - generic [ref=e70]:
+          - generic [ref=e71]: "Test Preset:"
+          - button "Evidence scoring" [ref=e72] [cursor=pointer]
+          - button "Document review" [ref=e73] [cursor=pointer]
+          - button "Escalation policy" [ref=e74] [cursor=pointer]
+      - generic [ref=e77]:
+        - generic [ref=e78]: 
+        - generic [ref=e80]:
+          - generic [ref=e81]:
+            - heading "NexusSOP Evidence Assistant" [level=3] [ref=e82]
+            - generic [ref=e83]: EVIDENCE API ONLINE
+          - paragraph [ref=e84]: This hackathon demonstration searches a local knowledge base and returns source excerpts. Sample sources are synthetic and not approved plant procedures. It does not provide work instructions or process images. Never use it to operate, isolate, repair, adjust, or maintain real equipment.
+          - generic [ref=e85]:
+            - generic [ref=e86]:
+              - generic [ref=e87]: 
+              - generic [ref=e88]: Refuses operational requests
+            - generic [ref=e89]:
+              - generic [ref=e90]: 
+              - generic [ref=e91]: Verbatim source citations
+            - generic [ref=e92]:
+              - generic [ref=e93]: 
+              - generic [ref=e94]: Human review before indexing
+          - generic [ref=e95]:
+            - paragraph [ref=e96]: Try a live request
+            - generic [ref=e97]:
+              - button "Show cited evidence" [ref=e98] [cursor=pointer]
+              - button "Explain document review" [ref=e99] [cursor=pointer]
+              - button "Test safety refusal" [ref=e100] [cursor=pointer]
+      - generic [ref=e102]:
+        - text:   
+        - generic [ref=e103]:
+          - generic "Attach an image for the model to analyze" [ref=e104] [cursor=pointer]: 
+          - generic "Attach an audio clip for the model to transcribe/analyze" [ref=e106] [cursor=pointer]: 
+          - button "" [disabled] [ref=e108]
+          - textbox "Ask about document evidence, review, or escalation policy..." [ref=e110]
+          - button "" [ref=e111] [cursor=pointer]
+          - button "Submit " [ref=e113] [cursor=pointer]:
+            - generic [ref=e114]: Submit
+            - generic [ref=e115]: 
+        - generic [ref=e116]:
+          - generic [ref=e117]: "Backend: Online • local evidence retrieval"
+          - generic [ref=e118]: "Voice Recognition: Off"
+    - text:      
+  - text:  

@@ -1,0 +1,10 @@
+.env
+.git
+.gitignore
+.venv
+__pycache__
+.pytest_cache
+*.py[cod]
+data/*.sqlite3
+data/*.sqlite3-*
+.playwright-mcp

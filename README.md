@@ -74,6 +74,54 @@ Gemini key is only used by the backend WebSocket relay and is never exposed to
 the browser. Do not send confidential documents to an unapproved external
 model provider.
 
+## Docker
+
+Docker is the recommended setup when you want the same runtime on every
+machine. Clone the public repository first, create `.env` locally, and pass
+the keys to the container at runtime. The keys are not copied into the image
+or committed to Git.
+
+### Linux/macOS
+
+```bash
+git clone https://github.com/inventashif/hackathon.git
+cd hackathon
+cp .env.example .env
+# Edit `.env` and add `LLM_API_KEY` for NVIDIA NIM and `GEMINI_API_KEY` for Google Gemini.
+docker compose up --build -d
+docker compose ps
+curl http://127.0.0.1:8000/api/health
+```
+
+Open `http://127.0.0.1:8000`. Stop the container with:
+
+```bash
+docker compose down
+```
+
+### Windows PowerShell
+
+```powershell
+git clone https://github.com/inventashif/hackathon.git
+cd hackathon
+Copy-Item .env.example .env
+# Edit `.env` and add `LLM_API_KEY` for NVIDIA NIM and `GEMINI_API_KEY` for Google Gemini.
+docker compose up --build -d
+docker compose ps
+Invoke-WebRequest http://127.0.0.1:8000/api/health
+```
+
+Stop the container with:
+
+```powershell
+docker compose down
+```
+
+The compose file mounts `./data` so SQLite sessions, approved documents, and
+uploaded images persist across container restarts. `tesseract-ocr` is installed
+inside the image for image OCR. To follow logs, run
+`docker compose logs -f nexussop`.
+
 ## Demo Flow
 
 1. Ask “What does the lexical retrieval score mean?” and inspect the exact source passage and relevance score.

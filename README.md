@@ -38,7 +38,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 cp .env.example .env
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### Windows PowerShell
@@ -50,12 +50,16 @@ py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
 Alternatively, Windows users can double-click `run.bat`; Linux/macOS users can
-run `./run.sh`. Open `http://127.0.0.1:8000`. Interactive API documentation is
-at `http://127.0.0.1:8000/docs`.
+run `./run.sh`. On the host computer, open `http://127.0.0.1:8000`. To open it
+from another device on the same Wi-Fi, find the host computer's LAN IP address
+and open `http://<LAN-IP>:8000` (for example, `http://192.168.1.25:8000`).
+The launcher prints the detected LAN URL when it starts.
+Interactive API documentation is available at the same address followed by
+`/docs`.
 
 ### Environment variables
 

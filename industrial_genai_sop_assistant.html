@@ -10,6 +10,28 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Mermaid.js CDN for Interactive Industrial Diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (window.mermaid) {
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'dark',
+                    themeVariables: {
+                        darkMode: true,
+                        background: '#0B0F17',
+                        primaryColor: '#00E5FF',
+                        primaryTextColor: '#F1F5F9',
+                        primaryBorderColor: '#00E5FF',
+                        lineColor: '#FF6B00',
+                        secondaryColor: '#1E293B',
+                        tertiaryColor: '#0F172A'
+                    }
+                });
+            }
+        });
+    </script>
     <!-- Google Fonts: Inter & JetBrains Mono -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     
@@ -112,6 +134,86 @@
 </head>
 <body class="bg-industrial-900 text-slate-100 font-sans antialiased h-screen overflow-hidden flex flex-col">
 
+    <!-- LOGIN OVERLAY (shown when not authenticated) -->
+    <div id="loginOverlay" class="fixed inset-0 bg-industrial-900 z-50 flex items-center justify-center p-4">
+        <div class="bg-industrial-800 border border-industrial-600 rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 rounded-full bg-industrial-accent/20 border-2 border-industrial-accent flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-microchip text-3xl text-industrial-accent"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-white">Nexus<span class="text-industrial-accent">SOP</span></h1>
+                <p class="text-slate-400 text-sm mt-1">Sign in to continue</p>
+            </div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Username</label>
+                    <input type="text" id="loginUsername" required
+                           class="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-industrial-cyan transition"
+                           placeholder="Enter your username">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Password</label>
+                    <input type="password" id="loginPassword" required
+                           class="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-industrial-cyan transition"
+                           placeholder="Enter your password">
+                </div>
+                <div id="loginError" class="hidden bg-industrial-danger/20 border border-industrial-danger/50 text-industrial-danger text-xs px-3 py-2 rounded"></div>
+                <button type="submit"
+                        class="w-full bg-industrial-accent hover:bg-orange-600 text-black font-bold py-2.5 rounded-lg transition shadow-lg">
+                    Sign In
+                </button>
+            </form>
+
+            <div id="changePasswordBanner" class="hidden mt-4 bg-industrial-warning/20 border border-industrial-warning/50 text-industrial-warning text-xs px-3 py-2 rounded">
+                <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                You should change your password after first login.
+            </div>
+        </div>
+    </div>
+
+    <!-- INVITE ACCEPT OVERLAY -->
+    <div id="inviteOverlay" class="hidden fixed inset-0 bg-industrial-900 z-50 flex items-center justify-center p-4">
+        <div class="bg-industrial-800 border border-industrial-600 rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 rounded-full bg-industrial-cyan/20 border-2 border-industrial-cyan flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-user-plus text-3xl text-industrial-cyan"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-white">Join Team</h1>
+                <p class="text-slate-400 text-sm mt-1">Create your account</p>
+            </div>
+
+            <form id="inviteForm" onsubmit="handleInviteAccept(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Username</label>
+                    <input type="text" id="inviteUsername" required
+                           class="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-industrial-cyan transition"
+                           placeholder="Choose a username">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Display Name</label>
+                    <input type="text" id="inviteDisplayName" required
+                           class="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-industrial-cyan transition"
+                           placeholder="Your name">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Password</label>
+                    <input type="password" id="invitePassword" required
+                           class="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-industrial-cyan transition"
+                           placeholder="Create a password">
+                </div>
+                <div id="inviteError" class="hidden bg-industrial-danger/20 border border-industrial-danger/50 text-industrial-danger text-xs px-3 py-2 rounded"></div>
+                <button type="submit"
+                        class="w-full bg-industrial-cyan hover:bg-cyan-400 text-black font-bold py-2.5 rounded-lg transition shadow-lg">
+                    Create Account
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP (hidden until authenticated) -->
+    <div id="mainApp" class="hidden h-full flex flex-col">
+
     <!-- TOP NAV HEADER -->
     <header class="bg-industrial-800 border-b border-industrial-600 px-4 py-2.5 flex flex-wrap items-center justify-between z-20 shrink-0">
         <!-- Brand Title & Plant Node -->
@@ -160,9 +262,40 @@
                     <i class="fa-solid fa-chart-line"></i>
                     <span>Supervisor Dashboard</span>
                 </button>
+                <button id="viewAdminBtn" onclick="switchMainView('admin')" class="hidden px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Admin</span>
+                </button>
+            </div>
+
+            <!-- User Menu -->
+            <div class="flex items-center space-x-3 border-l border-industrial-700 pl-4">
+                <button onclick="openInvitePanel()" class="bg-industrial-700 hover:bg-industrial-600 text-xs px-3 py-1.5 rounded border border-industrial-600 transition">
+                    <i class="fa-solid fa-user-plus mr-1"></i> Invite
+                </button>
+                <div class="flex items-center space-x-2">
+                    <div class="text-right hidden sm:block">
+                        <div id="userDisplayName" class="text-xs font-medium text-white">Loading...</div>
+                        <div id="userRole" class="text-[10px] text-slate-400 uppercase">...</div>
+                    </div>
+                    <button onclick="handleLogout()" class="bg-industrial-900 hover:bg-industrial-700 border border-industrial-600 text-xs px-3 py-1.5 rounded transition" title="Log out">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </header>
+
+    <!-- FIRST LOGIN CHANGE PASSWORD BANNER -->
+    <div id="appChangePasswordBanner" class="hidden bg-industrial-warning/20 border-b border-industrial-warning/40 px-4 py-2 text-xs text-industrial-warning flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>Default password in use. Please change your password for security.</span>
+        </div>
+        <button onclick="openChangePasswordModal()" class="bg-industrial-warning hover:bg-yellow-500 text-black font-bold px-3 py-1 rounded text-xs transition">
+            Change Password
+        </button>
+    </div>
 
     <!-- MAIN BODY CONTAINER -->
     <div class="flex flex-1 overflow-hidden relative">
@@ -196,8 +329,8 @@
                 <label for="pdfUploadInput" class="border-2 border-dashed border-industrial-600 hover:border-industrial-cyan rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer transition bg-industrial-800/50 hover:bg-industrial-800 group">
                     <i class="fa-solid fa-cloud-arrow-up text-industrial-cyan group-hover:scale-110 transition text-lg mb-1"></i>
                     <span class="text-xs font-medium text-slate-300">Add Source Document</span>
-                    <span class="text-[10px] text-slate-500">PDF, TXT, MD, or images (PNG, JPG, WEBP) • 10 MB max</span>
-                    <input id="pdfUploadInput" type="file" accept=".pdf,.txt,.md,.png,.jpg,.jpeg,.webp,.bmp,.tiff" class="hidden" onchange="handleFileUpload(event)">
+                    <span class="text-[10px] text-slate-500">PDF, DOCX, TXT, MD, or images (PNG, JPG, WEBP) • No size limit</span>
+                    <input id="pdfUploadInput" type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp,.bmp,.tiff" class="hidden" onchange="handleFileUpload(event)">
                 </label>
             </div>
         </aside>
@@ -240,6 +373,56 @@
                 </div>
             </div>
 
+            <!-- Dedicated Machine Workorder / Chat Session Bar -->
+            <div class="bg-industrial-950/90 border-b border-industrial-800 px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 z-10">
+                <div class="flex items-center space-x-2.5">
+                    <div class="flex items-center space-x-2 bg-industrial-900 border border-industrial-700 rounded-lg px-2.5 py-1 shadow-inner">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="activeChatMachineBadge" class="text-xs font-mono font-bold text-industrial-accent">SHARED FLOOR</span>
+                        <span class="text-slate-600">|</span>
+                        <span id="activeChatTitle" class="text-xs text-slate-200 font-medium truncate max-w-[200px] md:max-w-[340px]">Plant Floor Shared Stream</span>
+                    </div>
+
+                    <!-- Active Members List & Add Button -->
+                    <div id="activeChatMembersList" class="flex items-center -space-x-1.5 overflow-hidden">
+                        <!-- Populated dynamically -->
+                    </div>
+
+                    <button onclick="openAddMemberModal()" class="text-[11px] bg-industrial-800 hover:bg-industrial-700 text-slate-300 hover:text-white px-2 py-1 rounded border border-industrial-700 flex items-center space-x-1 transition shadow-sm" title="Add engineer or supervisor to this chat">
+                        <i class="fa-solid fa-user-plus text-industrial-cyan text-[10px]"></i>
+                        <span class="hidden md:inline">Add Member</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <button onclick="toggleChatHistoryDropdown()" id="chatHistoryBtn" class="bg-industrial-800 hover:bg-industrial-700 text-slate-200 px-2.5 py-1 rounded-lg text-xs border border-industrial-700 flex items-center space-x-1.5 transition shadow-sm">
+                        <i class="fa-solid fa-clock-rotate-left text-industrial-cyan"></i>
+                        <span>Resume Chats</span>
+                        <span id="chatCountBadge" class="bg-industrial-700 text-slate-300 text-[10px] px-1.5 py-0.2 rounded-full font-mono">1</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                    </button>
+
+                    <button onclick="openNewChatModal()" class="bg-industrial-accent hover:bg-orange-600 text-white font-semibold px-3 py-1 rounded-lg text-xs flex items-center space-x-1.5 shadow-md shadow-orange-950/40 transition">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>New Machine Chat</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Past Chats Dropdown Menu -->
+            <div id="chatHistoryDropdown" class="hidden absolute top-20 right-4 z-40 w-96 max-w-[92vw] bg-industrial-900 border border-industrial-700 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+                <div class="px-3 py-2 bg-industrial-800 border-b border-industrial-700 flex items-center justify-between text-xs">
+                    <span class="font-bold text-slate-200 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-comments text-industrial-cyan"></i>
+                        <span>Saved Machine Workorders & Chats</span>
+                    </span>
+                    <button onclick="closeChatHistoryDropdown()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div id="chatSessionsContainer" class="max-h-80 overflow-y-auto divide-y divide-industrial-800 p-1">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
             <!-- Interactive Chat Feed -->
             <div id="chatStream" class="flex-1 overflow-y-auto p-4 space-y-4">
                 
@@ -255,7 +438,7 @@
                                 <span id="assistantStatus" class="bg-industrial-warning/20 text-industrial-warning border border-industrial-warning/30 text-[10px] px-2 py-0.5 rounded font-mono">CONNECTING TO API</span>
                             </div>
                             <p class="text-xs text-slate-300 leading-relaxed">
-                                This hackathon demonstration searches a local knowledge base and returns source excerpts. Sample sources are synthetic and not approved plant procedures. It does not provide work instructions or process images. Never use it to operate, isolate, repair, adjust, or maintain real equipment.
+                                Procedures are generated only from approved manuals with original figures. If the approved knowledge base doesn't cover your question, the system will abstain rather than invent steps. This is a hackathon assistant and not a certified plant procedure.
                             </p>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 text-xs">
                                 <div class="bg-industrial-900 p-2 rounded border border-industrial-700 flex items-center space-x-2">
@@ -319,9 +502,81 @@
                         <button type="button" onclick="clearDocumentFilter()" class="rounded bg-industrial-700 px-2 py-1 text-[10px] text-slate-200 hover:bg-industrial-600">Clear filter</button>
                     </div>
 
+                    <!-- Collapsible Operational Context & Engineering Modules Drawer -->
+                    <div id="operationalContextDrawer" class="hidden rounded-lg border border-industrial-700/80 bg-industrial-800/95 p-3.5 space-y-3 shadow-2xl backdrop-blur transition-all">
+                        <div class="flex items-center justify-between border-b border-industrial-700 pb-2">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-sliders text-industrial-cyan text-sm"></i>
+                                <span class="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono">Operational Context & Engineering Metadata</span>
+                                <span class="text-[10px] bg-industrial-cyan/20 text-industrial-cyan border border-industrial-cyan/40 px-1.5 py-0.5 rounded font-mono">Executive SOP Synthesis</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <button type="button" onclick="resetContextDrawer()" class="text-[10px] text-slate-400 hover:text-industrial-accent transition">
+                                    <i class="fa-solid fa-rotate-left mr-1"></i>Clear Fields
+                                </button>
+                                <button type="button" onclick="toggleContextDrawer()" class="text-slate-400 hover:text-white text-xs">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                            <!-- Specific Module Selection -->
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">
+                                    <i class="fa-solid fa-book-bookmark text-industrial-accent mr-1"></i> Target Module / Manual
+                                </label>
+                                <select id="chatModuleSelect" onchange="updateContextActiveIndicator()" class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-industrial-cyan transition">
+                                    <option value="">All Approved Manuals & Modules</option>
+                                </select>
+                            </div>
+
+                            <!-- Machine Name -->
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">
+                                    <i class="fa-solid fa-gears text-industrial-cyan mr-1"></i> Machine Details / Equipment
+                                </label>
+                                <input type="text" id="chatMachineName" list="machineNamePresets" oninput="updateContextActiveIndicator()" placeholder="e.g. Robotic Packaging Arm" class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-industrial-cyan transition">
+                                <datalist id="machineNamePresets">
+                                    <option value="Robotic Packaging Arm (SKU #RPA-990)">
+                                    <option value="Standard Engine Lathe (LT-104)">
+                                    <option value="Hydraulic Overhaul Press (HP-500)">
+                                    <option value="CNC 5-Axis Mill (VMC-800)">
+                                    <option value="Automated Conveyor Belt (C-12)">
+                                </datalist>
+                            </div>
+
+                            <!-- Line / Machine Subtype & Error Code -->
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">Line / Type</label>
+                                    <input type="text" id="chatMachineType" oninput="updateContextActiveIndicator()" placeholder="Line 2 | SKU #RPA-990" class="w-full bg-industrial-900 border border-industrial-700 rounded px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-industrial-cyan transition">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">Error / Fault Code</label>
+                                    <input type="text" id="chatErrorCode" oninput="updateContextActiveIndicator()" placeholder="ERR-909" class="w-full bg-industrial-900 border border-industrial-700 rounded px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-industrial-cyan transition">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Expert Knowledge & Shift Notes -->
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">
+                                <i class="fa-solid fa-user-gear text-amber-400 mr-1"></i> Expert Knowledge & Shift Notes
+                            </label>
+                            <textarea id="chatExpertNotes" oninput="updateContextActiveIndicator()" rows="2" placeholder="Field technician observations (e.g. Joint 4 optical encoder recalibrated, hydraulic line purged, verify safety lockouts)..." class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-industrial-cyan transition"></textarea>
+                        </div>
+                    </div>
+
                     <!-- Input Bar -->
                     <div class="flex items-center space-x-2 bg-industrial-900 rounded-lg p-1.5 border border-industrial-700 focus-within:border-industrial-cyan transition">
                         
+                        <!-- Toggle Operational Context Drawer -->
+                        <button type="button" id="toggleContextBtn" onclick="toggleContextDrawer()" class="relative p-2 text-slate-400 hover:text-industrial-cyan rounded cursor-pointer transition" title="Toggle Machine Details, Error Codes, Expert Notes & Module Selection">
+                            <i class="fa-solid fa-sliders text-base"></i>
+                            <span id="contextActiveDot" class="hidden absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-industrial-accent animate-pulse"></span>
+                        </button>
+
                         <!-- Attach Image Button -->
                         <label for="visualInspectorUpload" class="p-2 text-slate-400 hover:text-industrial-cyan rounded cursor-pointer transition" title="Attach an image for the model to analyze">
                             <i class="fa-solid fa-image text-base"></i>
@@ -340,15 +595,21 @@
                         </button>
 
                         <!-- Main Text Prompt -->
-                        <input type="text" id="userQueryInput" placeholder="Ask about document evidence, review, or escalation policy..." class="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none px-2" onkeydown="if(event.key==='Enter') sendUserQuery()">
+                        <input type="text" id="userQueryInput" placeholder="Ask about document evidence, review, or operational procedures..." class="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none px-2" onkeydown="if(event.key==='Enter') sendUserQuery(false)">
 
                         <!-- Voice Dictation Mic Button -->
                         <button id="micBtn" onclick="toggleVoiceRecognition()" class="p-2 text-slate-400 hover:text-industrial-accent rounded transition" title="Hold/Click for Hands-Free Voice Input">
                             <i class="fa-solid fa-microphone text-base"></i>
                         </button>
 
+                        <!-- Generate SOP Button -->
+                        <button id="generateSopBtn" onclick="sendUserQuery(true)" class="bg-industrial-cyan/20 border border-industrial-cyan hover:bg-industrial-cyan/30 text-industrial-cyan px-3.5 py-2 rounded-md font-semibold text-xs flex items-center space-x-1.5 transition shadow" title="Synthesize and compile an Executive Engineering SOP Report (PDF)">
+                            <i class="fa-solid fa-file-shield text-industrial-cyan"></i>
+                            <span class="whitespace-nowrap">Generate SOP</span>
+                        </button>
+
                         <!-- Submit Button -->
-                        <button onclick="sendUserQuery()" class="bg-industrial-accent hover:bg-orange-600 text-white px-4 py-2 rounded-md font-semibold text-xs flex items-center space-x-1.5 transition shadow-lg">
+                        <button onclick="sendUserQuery(false)" class="bg-industrial-accent hover:bg-orange-600 text-white px-4 py-2 rounded-md font-semibold text-xs flex items-center space-x-1.5 transition shadow-lg">
                             <span>Submit</span>
                             <i class="fa-solid fa-paper-plane"></i>
                         </button>
@@ -476,6 +737,148 @@
                 </div>
             </div>
         </main>
+
+        <!-- VIEW 3: ADMIN DASHBOARD -->
+        <main id="adminView" class="hidden flex-1 bg-industrial-900 overflow-y-auto p-6 space-y-6">
+            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-industrial-700 pb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved text-industrial-accent"></i> System Administration
+                    </h2>
+                    <p class="text-xs text-slate-400">User accounts, document review queue, and access provisioning.</p>
+                </div>
+                <button onclick="loadAdminData()" class="bg-industrial-800 hover:bg-industrial-700 border border-industrial-700 text-slate-200 text-xs px-3 py-1.5 rounded transition">
+                    <i class="fa-solid fa-rotate mr-1"></i> Refresh Data
+                </button>
+            </div>
+            
+            <!-- AI Intelligence & Text Model Engine -->
+            <div class="bg-industrial-800 border border-industrial-700 rounded-xl p-5 shadow-lg space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-industrial-700/60 pb-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                            <i class="fa-solid fa-microchip text-industrial-accent"></i> AI Intelligence & Text Model Engine
+                        </h3>
+                        <p class="text-xs text-slate-400">Select the active LLM powering operator inquiries, industrial analysis, and interactive Mermaid diagrams.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="activeModelBadge" class="text-xs px-2.5 py-1 rounded font-mono font-bold bg-industrial-accent/20 text-industrial-accent border border-industrial-accent/40 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-industrial-accent animate-pulse"></span>
+                            <span id="activeModelText">LOADING...</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Provider Selection Switch Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Google Gemini Card -->
+                    <div id="geminiCard" onclick="selectModelProvider('gemini')" class="cursor-pointer border-2 rounded-xl p-4 transition-all bg-industrial-900 border-industrial-700 hover:border-industrial-cyan relative">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-lg">
+                                    <i class="fa-brands fa-google"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                                        Google Gemini API
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono font-normal">RECOMMENDED</span>
+                                    </h4>
+                                    <p class="text-xs text-slate-400">Fast reasoning, high-fidelity engineering synthesis, and rich Mermaid diagrams.</p>
+                                </div>
+                            </div>
+                            <div id="geminiRadio" class="w-5 h-5 rounded-full border-2 border-slate-600 flex items-center justify-center">
+                                <div id="geminiRadioInner" class="w-2.5 h-2.5 rounded-full bg-transparent"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-3 border-t border-industrial-800" onclick="event.stopPropagation()">
+                            <label class="block text-[11px] font-mono text-slate-400 mb-1">Select Gemini Model Version:</label>
+                            <select id="geminiModelSelect" onchange="onModelDropdownChange('gemini', this.value)" class="w-full bg-industrial-800 border border-industrial-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:border-industrial-cyan focus:outline-none">
+                                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Fastest & Ultra-Reliable)</option>
+                                <option value="gemini-3.8-flash">Gemini 3.8 Flash (Deep Engineering Reasoning)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- NVIDIA NIM Card -->
+                    <div id="nvidiaCard" onclick="selectModelProvider('nvidia')" class="cursor-pointer border-2 rounded-xl p-4 transition-all bg-industrial-900 border-industrial-700 hover:border-industrial-accent relative">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center justify-center text-green-400 text-lg">
+                                    <i class="fa-solid fa-server"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                                        NVIDIA NIM
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 font-mono font-normal">ENTERPRISE</span>
+                                    </h4>
+                                    <p class="text-xs text-slate-400">Microservice inference utilizing Nemotron and Llama weights via NVIDIA API.</p>
+                                </div>
+                            </div>
+                            <div id="nvidiaRadio" class="w-5 h-5 rounded-full border-2 border-slate-600 flex items-center justify-center">
+                                <div id="nvidiaRadioInner" class="w-2.5 h-2.5 rounded-full bg-transparent"></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-t border-industrial-800" onclick="event.stopPropagation()">
+                            <label class="block text-[11px] font-mono text-slate-400 mb-1">Select NVIDIA Model Version:</label>
+                            <select id="nvidiaModelSelect" onchange="onModelDropdownChange('nvidia', this.value)" class="w-full bg-industrial-800 border border-industrial-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:border-industrial-accent focus:outline-none">
+                                <option value="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning">Nemotron 3 Nano Omni (30B Reasoning)</option>
+                                <option value="meta/llama-3.3-70b-instruct">Meta Llama 3.3 70B Instruct</option>
+                                <option value="mistralai/mistral-large-2-instruct">Mistral Large 2 Instruct</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Latency & Model Diagnostics -->
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-2 bg-industrial-900/60 p-3 rounded-lg border border-industrial-700">
+                    <div class="flex items-center space-x-2 text-xs font-mono text-slate-300">
+                        <i class="fa-solid fa-gauge-high text-industrial-cyan"></i>
+                        <span>Engine Status: <span id="engineStatusDetail" class="text-white font-bold">Ready</span></span>
+                        <span id="modelLatencyBadge" class="hidden text-[10px] px-2 py-0.5 rounded bg-industrial-success/20 text-green-400 border border-industrial-success/40"></span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="testModelBtn" onclick="testActiveModel()" class="bg-industrial-800 hover:bg-industrial-700 border border-industrial-600 text-slate-200 text-xs px-3 py-1.5 rounded transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-bolt text-industrial-warning"></i> Test Model Latency & Response
+                        </button>
+                    </div>
+                </div>
+                <div id="testModelResult" class="hidden text-xs p-3 rounded-lg bg-industrial-900 border border-industrial-700 font-mono space-y-2">
+                </div>
+            </div>
+            
+            <!-- User Management -->
+            <div class="bg-industrial-800 border border-industrial-700 rounded-xl p-5 shadow-lg space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                            <i class="fa-solid fa-users text-industrial-cyan"></i> User Accounts
+                        </h3>
+                        <p class="text-xs text-slate-400">Manage user roles and disable/enable accounts.</p>
+                    </div>
+                    <button onclick="openInvitePanel()" class="bg-industrial-accent hover:bg-orange-600 text-black text-xs font-bold px-3 py-1.5 rounded shadow transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-user-plus"></i> Add User / Invite
+                    </button>
+                </div>
+                <div id="userList" class="space-y-2">
+                    <p class="text-xs text-slate-400">Loading users...</p>
+                </div>
+            </div>
+
+            <!-- Pending Documents -->
+            <div class="bg-industrial-800 border border-industrial-700 rounded-xl p-5 shadow-lg space-y-4">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                        <i class="fa-solid fa-file-circle-check text-industrial-warning"></i> Document Review Queue
+                    </h3>
+                    <p class="text-xs text-slate-400">Pending manuals and files requiring human review before indexing into retrieval.</p>
+                </div>
+                <div id="pendingDocsList" class="space-y-2">
+                    <p class="text-xs text-slate-400">Loading pending documents...</p>
+                </div>
+            </div>
+        </main>
     </div>
 
     <!-- MODAL / LIGHTBOX FOR VISUAL CITATION DIAGRAMS -->
@@ -484,22 +887,178 @@
             <div class="p-3 border-b border-industrial-700 flex justify-between items-center bg-industrial-900">
                 <div class="flex items-center space-x-2">
                     <i class="fa-solid fa-microchip text-industrial-cyan"></i>
-                    <h3 id="modalTitle" class="font-bold text-sm text-slate-200 font-mono">Schematic Diagram Citation - Page 42</h3>
+                    <h3 id="modalTitle" class="font-bold text-sm text-slate-200 font-mono">Schematic Diagram Citation</h3>
                 </div>
                 <button onclick="closeDiagramModal()" class="text-slate-400 hover:text-white px-2 text-lg"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="p-4 overflow-y-auto flex-1 bg-industrial-900 flex flex-col items-center justify-center">
                 <img id="modalImage" src="" class="max-w-full h-auto rounded border border-industrial-700 shadow-lg object-contain" alt="Diagram schematics">
                 <p id="modalCaption" class="mt-3 text-xs font-mono text-industrial-cyan bg-industrial-800 px-3 py-1.5 rounded border border-industrial-700 w-full text-center">
-                    Extracted from Siemens S7-1200 Wiring Specification • Figure 4-B
+                    Original Manual Figure
                 </p>
             </div>
             <div class="p-3 border-t border-industrial-700 bg-industrial-800 flex justify-between items-center">
-                <span class="text-[10px] text-slate-400 font-mono">Vector Grounding: Confirmed via Page Bounding Box #402</span>
+                <span class="text-[10px] text-slate-400 font-mono">Vector Grounding: Confirmed via original document figure</span>
                 <button onclick="closeDiagramModal()" class="bg-industrial-700 text-slate-200 text-xs px-4 py-1.5 rounded hover:bg-industrial-600">Close Viewer</button>
             </div>
         </div>
     </div>
+
+    <!-- MODAL: INVITE & USER MANAGEMENT -->
+    <div id="inviteModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-industrial-800 border border-industrial-600 rounded-xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col">
+            <div class="p-3 border-b border-industrial-700 flex justify-between items-center bg-industrial-900">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-user-plus text-industrial-cyan"></i>
+                    <h3 class="font-bold text-sm text-slate-200">Invite & User Management</h3>
+                </div>
+                <button onclick="closeInvitePanel()" class="text-slate-400 hover:text-white px-2 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-5 space-y-5 overflow-y-auto max-h-[80vh]">
+                <!-- Section 1: Single-use Invite Link -->
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wide text-industrial-accent mb-2">Generate Invite Link</h4>
+                    <p class="text-xs text-slate-400 mb-3">Create a single-use 7-day link for a new engineer to join the Shared floor.</p>
+                    <div class="flex items-center space-x-2 mb-2">
+                        <button type="button" onclick="generateNewInvite()" class="bg-industrial-accent hover:bg-orange-600 text-black text-xs font-bold px-3 py-2 rounded transition whitespace-nowrap">
+                            <i class="fa-solid fa-link mr-1"></i> Generate Link
+                        </button>
+                        <input type="text" id="generatedInviteUrl" readonly placeholder="Click Generate Link..." class="flex-1 bg-industrial-900 border border-industrial-700 rounded px-3 py-2 text-xs text-slate-200 font-mono select-all focus:outline-none">
+                        <button type="button" id="copyInviteBtn" onclick="copyInviteLink()" class="bg-industrial-700 hover:bg-industrial-600 text-xs px-3 py-2 rounded text-slate-200 transition" title="Copy to clipboard">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                    <div id="copyNotice" class="hidden text-[11px] text-industrial-success font-mono">Copied to clipboard!</div>
+                </div>
+
+                <!-- Section 2: Admin Direct Add User -->
+                <div id="adminDirectAddSection" class="hidden pt-4 border-t border-industrial-700">
+                    <h4 class="text-xs font-bold uppercase tracking-wide text-industrial-cyan mb-2">Direct User Creation (Admin)</h4>
+                    <form onsubmit="handleDirectAddUser(event)" class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] text-slate-400 uppercase mb-1">Username</label>
+                                <input type="text" id="directAddUsername" required class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-industrial-cyan">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 uppercase mb-1">Display Name</label>
+                                <input type="text" id="directAddDisplayName" required class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-industrial-cyan">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] text-slate-400 uppercase mb-1">Password</label>
+                                <input type="password" id="directAddPassword" required class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-industrial-cyan">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 uppercase mb-1">Role</label>
+                                <select id="directAddRole" class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-industrial-cyan">
+                                    <option value="engineer">Engineer</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="directAddStatus" class="hidden text-xs py-1.5 px-2 rounded"></div>
+                        <button type="submit" class="w-full bg-industrial-cyan hover:bg-cyan-400 text-black text-xs font-bold py-2 rounded transition shadow">
+                            Create User Account
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="p-3 border-t border-industrial-700 bg-industrial-900 flex justify-end">
+                <button onclick="closeInvitePanel()" class="bg-industrial-700 hover:bg-industrial-600 text-slate-300 text-xs px-4 py-1.5 rounded transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: SOP FEEDBACK -->
+    <div id="feedbackModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-industrial-800 border border-industrial-600 rounded-xl max-w-md w-full overflow-hidden shadow-2xl flex flex-col">
+            <div class="p-3 border-b border-industrial-700 flex justify-between items-center bg-industrial-900">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-comment-medical text-industrial-cyan"></i>
+                    <h3 class="font-bold text-sm text-slate-200">Record Field Feedback</h3>
+                </div>
+                <button onclick="closeFeedbackModal()" class="text-slate-400 hover:text-white px-2 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="submitFeedback(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">How was the procedure applied?</label>
+                    <input type="text" id="feedbackAppliedHow" required placeholder="e.g. Adjusted tension screw 2 turns clockwise" class="w-full bg-industrial-900 border border-industrial-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-industrial-cyan">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Outcome</label>
+                    <select id="feedbackOutcome" class="w-full bg-industrial-900 border border-industrial-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-industrial-cyan">
+                        <option value="fixed">Fixed</option>
+                        <option value="partial">Partially Fixed</option>
+                        <option value="not_fixed">Not Fixed</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Engineer Notes</label>
+                    <textarea id="feedbackNotes" rows="3" placeholder="Observations, measurements, or follow-ups..." class="w-full bg-industrial-900 border border-industrial-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-industrial-cyan"></textarea>
+                </div>
+                <div id="feedbackError" class="hidden text-xs text-industrial-danger bg-industrial-danger/20 p-2 rounded"></div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeFeedbackModal()" class="bg-industrial-700 hover:bg-industrial-600 text-slate-300 text-xs px-4 py-2 rounded">Cancel</button>
+                    <button type="submit" class="bg-industrial-accent hover:bg-orange-600 text-black font-bold text-xs px-4 py-2 rounded shadow">Submit Feedback</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD SOP NOTE -->
+    <div id="noteModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-industrial-800 border border-industrial-600 rounded-xl max-w-md w-full overflow-hidden shadow-2xl flex flex-col">
+            <div class="p-3 border-b border-industrial-700 flex justify-between items-center bg-industrial-900">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-sticky-note text-industrial-accent"></i>
+                    <h3 class="font-bold text-sm text-slate-200">Add Engineer Note</h3>
+                </div>
+                <button onclick="closeNoteModal()" class="text-slate-400 hover:text-white px-2 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="submitNote(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Note</label>
+                    <textarea id="noteBody" required rows="4" placeholder="Enter operating note, tool specification, or safety reminder..." class="w-full bg-industrial-900 border border-industrial-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-industrial-cyan"></textarea>
+                </div>
+                <div id="noteError" class="hidden text-xs text-industrial-danger bg-industrial-danger/20 p-2 rounded"></div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeNoteModal()" class="bg-industrial-700 hover:bg-industrial-600 text-slate-300 text-xs px-4 py-2 rounded">Cancel</button>
+                    <button type="submit" class="bg-industrial-cyan hover:bg-cyan-400 text-black font-bold text-xs px-4 py-2 rounded shadow">Save Note</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CHANGE PASSWORD -->
+    <div id="changePasswordModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-industrial-800 border border-industrial-600 rounded-xl max-w-md w-full overflow-hidden shadow-2xl flex flex-col">
+            <div class="p-3 border-b border-industrial-700 flex justify-between items-center bg-industrial-900">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-key text-industrial-warning"></i>
+                    <h3 class="font-bold text-sm text-slate-200">Change Password</h3>
+                </div>
+                <button onclick="closeChangePasswordModal()" class="text-slate-400 hover:text-white px-2 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="handleChangePassword(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Current Password</label>
+                    <input type="password" id="currentPasswordInput" required class="w-full bg-industrial-900 border border-industrial-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-industrial-cyan">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">New Password</label>
+                    <input type="password" id="newPasswordInput" required class="w-full bg-industrial-900 border border-industrial-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-industrial-cyan">
+                </div>
+                <div id="changePasswordStatus" class="hidden text-xs p-2 rounded"></div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeChangePasswordModal()" class="bg-industrial-700 hover:bg-industrial-600 text-slate-300 text-xs px-4 py-2 rounded">Cancel</button>
+                    <button type="submit" class="bg-industrial-warning hover:bg-yellow-500 text-black font-bold text-xs px-4 py-2 rounded shadow">Update Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    </div> <!-- End of mainApp -->
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
@@ -508,22 +1067,27 @@
         let isVoiceActive = false;
         let selectedDocId = null;
         let currentUploadedImage = null;
-        let textSessionId = null;
-    let currentAudio = null;
-
-    // Live voice (Gemini) state
-    let liveWs = null;
-    let liveAudioCtx = null;
-    let livePlaybackCtx = null;
-    let liveMicStream = null;
-    let liveProcessor = null;
-    let liveScheduledEndTime = 0;
-    let liveActiveSources = [];
-    let liveToolReplyTimer = null;
-    let speechRecognition = null;
-        let ttsSynth = window.speechSynthesis;
+        let currentAudio = null;
+        let currentUser = null;
+        let sharedSessionId = null;
+        let lastMessageId = 0;
+        let pollInterval = null;
+        let activeSopId = null;
+        let renderedMessageIds = new Set();
         let documentCache = [];
         let dashboardCharts = [];
+
+        // Live voice (Gemini) state
+        let liveWs = null;
+        let liveAudioCtx = null;
+        let livePlaybackCtx = null;
+        let liveMicStream = null;
+        let liveProcessor = null;
+        let liveScheduledEndTime = 0;
+        let liveActiveSources = [];
+        let liveToolReplyTimer = null;
+        let speechRecognition = null;
+        let ttsSynth = window.speechSynthesis;
 
         // Initialize App on DOM Load
         document.addEventListener('DOMContentLoaded', () => {
@@ -531,31 +1095,48 @@
             setupVoiceRecognition();
             document.getElementById('docSearch').addEventListener('input', renderDocuments);
             refreshBackendStatus();
-            loadDocuments();
-            refreshAnalytics();
+            checkAuth();
         });
 
-        // Switch Views (Assistant vs Analytics Dashboard)
+        // Switch Views (Assistant vs Analytics Dashboard vs Admin)
         function switchMainView(view) {
             activeView = view;
             const assistantView = document.getElementById('assistantView');
             const analyticsView = document.getElementById('analyticsView');
+            const adminView = document.getElementById('adminView');
             const assistantBtn = document.getElementById('viewAssistantBtn');
             const analyticsBtn = document.getElementById('viewAnalyticsBtn');
+            const adminBtn = document.getElementById('viewAdminBtn');
 
             if (view === 'assistant') {
                 assistantView.classList.remove('hidden');
                 analyticsView.classList.add('hidden');
+                adminView.classList.add('hidden');
                 
                 assistantBtn.className = "px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow";
                 analyticsBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
-            } else {
+                adminBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
+                startSharedChatPolling();
+            } else if (view === 'analytics') {
                 assistantView.classList.add('hidden');
                 analyticsView.classList.remove('hidden');
+                adminView.classList.add('hidden');
+                stopSharedChatPolling();
                 refreshAnalytics();
 
                 analyticsBtn.className = "px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow";
                 assistantBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
+                adminBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
+            } else if (view === 'admin') {
+                assistantView.classList.add('hidden');
+                analyticsView.classList.add('hidden');
+                adminView.classList.remove('hidden');
+                stopSharedChatPolling();
+                loadAdminData();
+
+                adminBtn.className = "px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow";
+                assistantBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
+                analyticsBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
             }
         }
 
@@ -563,6 +1144,7 @@
             selectedDocId = selectedDocId === documentId ? null : documentId;
             renderDocuments();
             updateDocFilterBanner();
+            syncModuleSelectWithFilter();
             if (window.innerWidth <= 767 && document.getElementById('sidebar').classList.contains('sidebar-open')) {
                 toggleKnowledgeVault();
             }
@@ -572,6 +1154,7 @@
             selectedDocId = null;
             renderDocuments();
             updateDocFilterBanner();
+            syncModuleSelectWithFilter();
         }
 
         function updateDocFilterBanner() {
@@ -629,11 +1212,75 @@
                 documentCache = payload.documents;
                 renderDocuments();
                 updateDocFilterBanner();
+                updateModuleSelect();
             } catch (error) {
                 document.getElementById('documentList').replaceChildren(
                     makeTextElement('p', 'p-3 text-xs text-industrial-warning', 'Knowledge base unavailable. Start the backend and refresh.')
                 );
                 document.getElementById('docCount').textContent = 'Offline';
+            }
+        }
+
+        function updateModuleSelect() {
+            const selectEl = document.getElementById('chatModuleSelect');
+            if (!selectEl) return;
+            const currentVal = selectEl.value;
+            selectEl.innerHTML = '<option value="">All Approved Manuals & Modules</option>';
+            const approved = (documentCache || []).filter(d => d.approved && !d.rejected);
+            approved.forEach(doc => {
+                const opt = document.createElement('option');
+                opt.value = doc.name;
+                opt.textContent = `${doc.name} (Doc #${doc.id})`;
+                if (doc.name === currentVal) opt.selected = true;
+                selectEl.appendChild(opt);
+            });
+            updateContextActiveIndicator();
+        }
+
+        function syncModuleSelectWithFilter() {
+            const selectEl = document.getElementById('chatModuleSelect');
+            if (!selectEl) return;
+            if (selectedDocId === null) {
+                selectEl.value = '';
+            } else {
+                const doc = (documentCache || []).find(d => d.id === selectedDocId);
+                if (doc) selectEl.value = doc.name;
+            }
+            updateContextActiveIndicator();
+        }
+
+        function toggleContextDrawer() {
+            const drawer = document.getElementById('operationalContextDrawer');
+            if (!drawer) return;
+            drawer.classList.toggle('hidden');
+        }
+
+        function resetContextDrawer() {
+            const mName = document.getElementById('chatMachineName');
+            const mType = document.getElementById('chatMachineType');
+            const eCode = document.getElementById('chatErrorCode');
+            const notes = document.getElementById('chatExpertNotes');
+            const mod = document.getElementById('chatModuleSelect');
+            if (mName) mName.value = '';
+            if (mType) mType.value = '';
+            if (eCode) eCode.value = '';
+            if (notes) notes.value = '';
+            if (mod) mod.value = '';
+            updateContextActiveIndicator();
+        }
+
+        function updateContextActiveIndicator() {
+            const dot = document.getElementById('contextActiveDot');
+            if (!dot) return;
+            const mName = document.getElementById('chatMachineName')?.value?.trim();
+            const mType = document.getElementById('chatMachineType')?.value?.trim();
+            const eCode = document.getElementById('chatErrorCode')?.value?.trim();
+            const notes = document.getElementById('chatExpertNotes')?.value?.trim();
+            const mod = document.getElementById('chatModuleSelect')?.value?.trim();
+            if (mName || mType || eCode || notes || mod) {
+                dot.classList.remove('hidden');
+            } else {
+                dot.classList.add('hidden');
             }
         }
 
@@ -674,29 +1321,51 @@
                     card.append(imgWrap);
                 }
                 card.append(selectButton);
-                const status = makeTextElement('p', `mt-2 border-t border-industrial-600/50 pt-1.5 text-[10px] font-mono ${doc.approved ? 'text-industrial-success' : 'text-industrial-warning'}`, doc.approved ? 'Approved for retrieval' : 'Pending human review');
-                card.append(status);
-                if (!doc.approved) {
-                    const approveButton = makeTextElement('button', 'mt-2 rounded bg-industrial-700 px-2 py-1 text-[10px] text-slate-200 hover:bg-industrial-600', 'Approve for demo retrieval');
-                    approveButton.type = 'button';
-                    approveButton.title = 'Demo only: this action has no reviewer authentication.';
-                    approveButton.addEventListener('click', () => approveDocument(doc.id));
-                    card.append(approveButton);
+
+                const isAdmin = currentUser && currentUser.role === 'admin';
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'mt-2 flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-industrial-600/50';
+
+                if (doc.approved) {
+                    actionsDiv.append(makeTextElement('span', 'text-[10px] font-mono text-industrial-success font-semibold', 'Approved'));
+                    if (isAdmin) {
+                        const delBtn = makeTextElement('button', 'rounded bg-industrial-danger/20 border border-industrial-danger/40 px-2 py-0.5 text-[10px] text-red-300 hover:bg-industrial-danger/40', 'Delete');
+                        delBtn.type = 'button';
+                        delBtn.addEventListener('click', () => deleteDocument(doc.id));
+                        actionsDiv.append(delBtn);
+                    }
+                } else if (doc.rejected) {
+                    actionsDiv.append(makeTextElement('span', 'text-[10px] font-mono text-industrial-danger font-semibold', 'Rejected'));
+                    if (isAdmin) {
+                        const apprBtn = makeTextElement('button', 'rounded bg-industrial-success/20 border border-industrial-success/40 px-2 py-0.5 text-[10px] text-green-300 hover:bg-industrial-success/40', 'Approve');
+                        apprBtn.type = 'button';
+                        apprBtn.addEventListener('click', () => approveDocument(doc.id));
+                        const delBtn = makeTextElement('button', 'rounded bg-industrial-danger/20 border border-industrial-danger/40 px-2 py-0.5 text-[10px] text-red-300 hover:bg-industrial-danger/40', 'Delete');
+                        delBtn.type = 'button';
+                        delBtn.addEventListener('click', () => deleteDocument(doc.id));
+                        actionsDiv.append(apprBtn, delBtn);
+                    }
+                } else {
+                    // Pending
+                    if (isAdmin) {
+                        actionsDiv.append(makeTextElement('span', 'text-[10px] font-mono text-industrial-warning', 'Pending: '));
+                        const apprBtn = makeTextElement('button', 'rounded bg-industrial-success/20 border border-industrial-success/40 px-2 py-0.5 text-[10px] text-green-300 hover:bg-industrial-success/40', 'Approve');
+                        apprBtn.type = 'button';
+                        apprBtn.addEventListener('click', () => approveDocument(doc.id));
+                        const rejBtn = makeTextElement('button', 'rounded bg-industrial-warning/20 border border-industrial-warning/40 px-2 py-0.5 text-[10px] text-yellow-300 hover:bg-industrial-warning/40', 'Reject');
+                        rejBtn.type = 'button';
+                        rejBtn.addEventListener('click', () => rejectDocument(doc.id));
+                        const delBtn = makeTextElement('button', 'rounded bg-industrial-danger/20 border border-industrial-danger/40 px-2 py-0.5 text-[10px] text-red-300 hover:bg-industrial-danger/40', 'Delete');
+                        delBtn.type = 'button';
+                        delBtn.addEventListener('click', () => deleteDocument(doc.id));
+                        actionsDiv.append(apprBtn, rejBtn, delBtn);
+                    } else {
+                        actionsDiv.append(makeTextElement('span', 'text-[10px] font-mono text-slate-400', 'Waiting for admin'));
+                    }
                 }
+                card.append(actionsDiv);
                 list.append(card);
             });
-        }
-
-        async function approveDocument(documentId) {
-            try {
-                const response = await fetch(`/api/documents/${documentId}/approve`, { method: 'POST' });
-                if (!response.ok) throw new Error((await response.json()).detail || 'Approval failed');
-                await loadDocuments();
-                appendNotice('Document marked approved for this local demo. Use a real authorized reviewer workflow before deployment.');
-                refreshAnalytics();
-            } catch (error) {
-                appendNotice(error.message, true);
-            }
         }
 
         // Set Interaction Mode (Text / Voice / Visual Inspector)
@@ -736,6 +1405,7 @@
             if (!file) return;
             const formData = new FormData();
             formData.append('file', file);
+            appendNotice(`Uploading ${file.name}...`);
             try {
                 const response = await fetch('/api/documents', { method: 'POST', body: formData });
                 const payload = await response.json();
@@ -798,127 +1468,6 @@
             const notice = makeTextElement('p', `mx-auto max-w-3xl rounded border p-3 text-xs ${isError ? 'border-industrial-danger/50 bg-industrial-danger/10 text-red-200' : 'border-industrial-700 bg-industrial-800 text-slate-300'}`, message);
             document.getElementById('chatStream').append(notice);
             document.getElementById('chatStream').scrollTop = document.getElementById('chatStream').scrollHeight;
-        }
-
-        function appendUserMessage(query) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'flex justify-end';
-            const bubble = document.createElement('div');
-            bubble.className = 'max-w-xl rounded-xl border border-industrial-600 bg-industrial-700 p-3';
-            bubble.append(
-                makeTextElement('div', 'mb-1 text-[10px] font-mono text-industrial-cyan', `Operator • ${new Date().toLocaleTimeString()}`),
-                makeTextElement('p', 'text-xs font-medium text-slate-100 whitespace-pre-wrap', query)
-            );
-            wrapper.append(bubble);
-            document.getElementById('chatStream').append(wrapper);
-        }
-
-        function renderAssistantResponse(query, result) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'flex space-x-3 items-start max-w-3xl';
-            const icon = document.createElement('div');
-            icon.className = 'w-8 h-8 rounded bg-industrial-accent border border-industrial-accent flex items-center justify-center text-white shrink-0 text-sm';
-            icon.innerHTML = '<i class="fa-solid fa-robot" aria-hidden="true"></i>';
-            const panel = document.createElement('section');
-            panel.className = `flex-1 rounded-xl border p-4 space-y-3 ${result.abstained ? 'border-industrial-warning/60 bg-industrial-800' : 'border-industrial-700 bg-industrial-800'}`;
-            const responseTitle = result.abstained
-                ? 'No verified answer'
-                : (String(result.generation_mode || '').startsWith('conversational') ? 'Assistant reply' : 'Source-grounded response');
-            panel.append(makeTextElement('h3', 'text-sm font-bold text-slate-100', responseTitle));
-            panel.append(makeTextElement('p', 'text-xs leading-relaxed text-slate-200 whitespace-pre-wrap', result.answer));
-
-            if (result.reason) {
-                panel.append(makeTextElement('p', 'text-[11px] text-industrial-warning', result.reason));
-            }
-            (result.citations || []).forEach(citation => {
-                const source = document.createElement('div');
-                source.id = `citation-${citation.reference_id}`;
-                source.className = 'rounded border border-industrial-700 bg-industrial-900 p-3 space-y-2';
-                source.append(
-                    makeTextElement('div', 'text-[10px] font-mono text-industrial-cyan', `${citation.reference_id} • ${citation.document_name} • ${citation.source} • relevance ${citation.score}`),
-                    makeTextElement('blockquote', 'border-l-2 border-industrial-accent pl-3 text-xs leading-relaxed text-slate-300 whitespace-pre-wrap', citation.passage)
-                );
-                panel.append(source);
-            });
-
-            const footer = document.createElement('div');
-            footer.className = 'flex flex-wrap items-center justify-between gap-2 border-t border-industrial-700 pt-2';
-            const metric = result.retrieval_score > 0 ? `Retrieval relevance: ${result.retrieval_score} • not a confidence score` : 'No source evidence found';
-            footer.append(makeTextElement('span', 'text-[10px] font-mono text-slate-400', `${metric} • ${result.generation_mode || 'safety abstention'}`));
-            if (result.abstained) {
-                const escalate = makeTextElement('button', 'rounded bg-industrial-warning px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-500', 'Log escalation');
-                escalate.type = 'button';
-                escalate.addEventListener('click', () => triggerExpertEscalation(query, result.reason || 'Insufficient source evidence'));
-                footer.append(escalate);
-            } else {
-                const readAloud = makeTextElement('button', 'rounded px-2 py-1 text-xs text-slate-300 hover:text-industrial-accent', 'Read aloud');
-                readAloud.type = 'button';
-                readAloud.addEventListener('click', () => speakText(spokenTextFor(result)));
-                footer.append(readAloud);
-            }
-            panel.append(footer);
-            wrapper.append(icon, panel);
-            document.getElementById('chatStream').append(wrapper);
-            document.getElementById('chatStream').scrollTop = document.getElementById('chatStream').scrollHeight;
-            if (isVoiceActive && !result.abstained) {
-                speakText(spokenTextFor(result));
-            }
-        }
-
-        // Read-aloud should speak the answer only. Repeating the full source
-        // passages made the spoken output long and confusing.
-        function spokenTextFor(result) {
-            const answer = (result && result.answer) ? result.answer : '';
-            const citations = (result && result.citations) || [];
-            const sources = citations.length
-                ? ` Sources: ${citations.map(item => `${item.reference_id}, ${item.document_name}`).join('. ')}.`
-                : '';
-            return `${answer}${sources}`;
-        }
-
-        async function sendUserQuery() {
-            const inputEl = document.getElementById('userQueryInput');
-            const queryText = inputEl.value.trim();
-            // Attached media is sent with the request and cleared after sending.
-            if (!queryText) return;
-            appendUserMessage(queryText);
-            const payload = { query: queryText };
-            if (!textSessionId) {
-                const sessionResponse = await fetch('/api/sessions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ kind: 'text' })
-                });
-                if (!sessionResponse.ok) {
-                    appendNotice('Could not start a chat session.', true);
-                    return;
-                }
-                textSessionId = (await sessionResponse.json()).session_id;
-            }
-            payload.session_id = textSessionId;
-            if (selectedDocId !== null) payload.document_id = selectedDocId;
-            if (currentUploadedImage) payload.image = currentUploadedImage;
-            if (currentAudio) payload.audio = currentAudio;
-            inputEl.value = '';
-            removeUploadedImage();
-            removeUploadedAudio();
-            const submitButton = document.querySelector('#assistantView button[onclick="sendUserQuery()"]');
-            if (submitButton) submitButton.disabled = true;
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.detail || 'Request failed');
-                renderAssistantResponse(queryText, result);
-                refreshAnalytics();
-            } catch (error) {
-                appendNotice(`Could not reach the evidence API: ${error.message}`, true);
-            } finally {
-                if (submitButton) submitButton.disabled = false;
-            }
         }
 
         // Modal Lightbox Viewer
@@ -1417,12 +1966,20 @@
         // Text-to-Speech (TTS) Read Aloud
         function speakText(text) {
             if (!ttsSynth) return;
-            ttsSynth.cancel(); // Stop ongoing speech
-
+            ttsSynth.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.rate = 1.0;
             utterance.pitch = 1.0;
             ttsSynth.speak(utterance);
+        }
+
+        function spokenTextFor(result) {
+            const answer = (result && result.answer) ? result.answer : '';
+            const citations = (result && result.citations) || [];
+            const sources = citations.length
+                ? ` Sources: ${citations.map(item => `${item.reference_id}, ${item.document_name}`).join('. ')}.`
+                : '';
+            return `${answer}${sources}`;
         }
 
         async function triggerExpertEscalation(query, reason) {
@@ -1441,10 +1998,8 @@
             }
         }
 
-        // Utility: Escape HTML. Quotes are escaped too because the result is
-        // interpolated into an inline onclick attribute.
         function escapeHtml(text) {
-            return String(text)
+            return String(text || '')
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;")
@@ -1496,7 +2051,7 @@
                 document.getElementById('headerConfidence').textContent = data.average_retrieval_score ? data.average_retrieval_score.toFixed(3) : '--';
                 if (!dashboardCharts.length) return;
 
-                const recent = data.recent_queries.slice().reverse();
+                const recent = (data.recent_queries || []).slice().reverse();
                 dashboardCharts[0].data.labels = recent.map(item => item.query.length > 24 ? `${item.query.slice(0, 21)}...` : item.query);
                 dashboardCharts[0].data.datasets[0].data = recent.map(item => item.retrieval_score);
                 dashboardCharts[1].data.datasets[0].data = [data.grounded, data.abstained];
@@ -1505,10 +2060,1737 @@
                 dashboardCharts[3].data.datasets[0].data = [data.approved_documents, pending];
                 dashboardCharts.forEach(chart => chart.update());
             } catch (error) {
-                document.getElementById('backendFooter').textContent = 'Backend unavailable • analytics not loaded';
+                const f = document.getElementById('backendFooter');
+                if (f) f.textContent = 'Backend unavailable • analytics not loaded';
+            }
+        }
+
+        // ---- Authentication ----
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/me');
+                if (response.ok) {
+                    currentUser = await response.json();
+                    showMainApp();
+                } else {
+                    const path = window.location.pathname;
+                    if (path.startsWith('/invite/')) {
+                        const code = path.split('/').pop();
+                        checkInvite(code);
+                    } else {
+                        showLogin();
+                    }
+                }
+            } catch (e) {
+                showLogin();
+            }
+        }
+
+        function showLogin() {
+            document.getElementById('loginOverlay').classList.remove('hidden');
+            document.getElementById('inviteOverlay').classList.add('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+        }
+
+        function showMainApp() {
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('inviteOverlay').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+
+            if (currentUser) {
+                document.getElementById('userDisplayName').textContent = currentUser.display_name;
+                document.getElementById('userRole').textContent = currentUser.role;
+
+                const isAdmin = currentUser.role === 'admin';
+                const adminBtn = document.getElementById('viewAdminBtn');
+                if (isAdmin) {
+                    adminBtn.classList.remove('hidden');
+                    const adminDirectSection = document.getElementById('adminDirectAddSection');
+                    if (adminDirectSection) adminDirectSection.classList.remove('hidden');
+                    loadModelConfig();
+                } else {
+                    adminBtn.classList.add('hidden');
+                    const adminDirectSection = document.getElementById('adminDirectAddSection');
+                    if (adminDirectSection) adminDirectSection.classList.add('hidden');
+                }
+
+                const appPwBanner = document.getElementById('appChangePasswordBanner');
+                if (appPwBanner) {
+                    if (currentUser.must_change_password) {
+                        appPwBanner.classList.remove('hidden');
+                    } else {
+                        appPwBanner.classList.add('hidden');
+                    }
+                }
+
+                loadDocuments();
+                refreshAnalytics();
+                startSharedChatPolling();
+            }
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    currentUser = await response.json();
+                    showMainApp();
+                } else {
+                    const error = await response.json();
+                    errorDiv.textContent = error.detail || 'Invalid username or password.';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (e) {
+                errorDiv.textContent = 'Connection error: ' + e.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch (e) {}
+            window.location.href = '/';
+        }
+
+        async function checkInvite(code) {
+            try {
+                const response = await fetch(`/api/invites/${code}`);
+                const data = await response.json();
+
+                if (data.valid) {
+                    document.getElementById('loginOverlay').classList.add('hidden');
+                    document.getElementById('inviteOverlay').classList.remove('hidden');
+                } else {
+                    alert('This invite link is invalid or has already expired.');
+                    showLogin();
+                }
+            } catch (e) {
+                showLogin();
+            }
+        }
+
+        async function handleInviteAccept(event) {
+            event.preventDefault();
+            const code = window.location.pathname.split('/').pop();
+            const username = document.getElementById('inviteUsername').value.trim();
+            const display_name = document.getElementById('inviteDisplayName').value.trim();
+            const password = document.getElementById('invitePassword').value;
+            const errorDiv = document.getElementById('inviteError');
+            errorDiv.classList.add('hidden');
+
+            try {
+                const response = await fetch(`/api/invites/${code}/accept`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, display_name, password })
+                });
+
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    const error = await response.json();
+                    errorDiv.textContent = error.detail || 'Failed to accept invite';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (e) {
+                errorDiv.textContent = 'Connection error: ' + e.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        // ---- Shared Chat Polling ----
+        function startSharedChatPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            loadSharedRoom().then(() => {
+                pollInterval = setInterval(() => {
+                    if (activeView === 'assistant') {
+                        pollSharedMessages();
+                    }
+                }, 2000);
+            });
+        }
+
+        function stopSharedChatPolling() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+        }
+
+        let currentChatSessionId = null;
+        let currentChatSessionData = null;
+        let chatSessionsList = [];
+        let userRoster = [];
+
+        async function loadSharedRoom() {
+            try {
+                const response = await fetch('/api/rooms/shared');
+                if (!response.ok) return;
+                const data = await response.json();
+                sharedSessionId = data.session_id;
+                if (!currentChatSessionId) {
+                    currentChatSessionId = sharedSessionId;
+                }
+                await pollSharedMessages(0);
+                await loadChatSessionsList();
+                await loadUserRoster();
+            } catch (e) {
+                console.error('Failed to load shared room:', e);
+            }
+        }
+
+        async function pollSharedMessages(afterId) {
+            const after = (typeof afterId === 'number') ? afterId : lastMessageId;
+            try {
+                let url = `/api/rooms/shared/messages?after_id=${after}`;
+                if (currentChatSessionId && currentChatSessionId !== sharedSessionId) {
+                    url = `/api/chat/sessions/${currentChatSessionId}?after_id=${after}`;
+                }
+                const response = await fetch(url);
+                if (!response.ok) return;
+                const data = await response.json();
+
+                if (data.messages && data.messages.length > 0) {
+                    // Remove optimistic UI and thinking indicator
+                    document.querySelectorAll('.optimistic-msg').forEach(el => el.remove());
+                    const thinking = document.getElementById('thinkingIndicator');
+                    if (thinking) thinking.remove();
+
+                    data.messages.forEach(msg => {
+                        if (renderedMessageIds.has(msg.id)) return;
+                        renderedMessageIds.add(msg.id);
+                        if (msg.id > lastMessageId) lastMessageId = msg.id;
+
+                        if (msg.role === 'user') {
+                            appendUserMessageBubble(msg);
+                        } else if (msg.role === 'assistant') {
+                            appendAssistantMessageBubble(msg);
+                        } else if (msg.role === 'system') {
+                            appendSystemMessageBubble(msg);
+                        }
+                    });
+
+                    const chatStream = document.getElementById('chatStream');
+                    chatStream.scrollTop = chatStream.scrollHeight;
+                }
+            } catch (e) {
+                console.error('Poll error:', e);
+            }
+        }
+
+        function formatTime(isoStr) {
+            if (!isoStr) return '';
+            try {
+                return new Date(isoStr).toLocaleTimeString();
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function appendUserMessageBubble(msg) {
+            const chatStream = document.getElementById('chatStream');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex justify-end';
+            wrapper.setAttribute('data-msg-id', msg.id);
+            const bubble = document.createElement('div');
+            bubble.className = 'max-w-xl rounded-xl border border-industrial-600 bg-industrial-700 p-3 shadow';
+            bubble.innerHTML = `
+                <div class="mb-1 text-[10px] font-mono text-industrial-cyan text-right">
+                    ${escapeHtml(msg.display_name || 'Operator')} • ${formatTime(msg.created_at)}
+                </div>
+                <p class="text-xs font-medium text-slate-100 whitespace-pre-wrap">${escapeHtml(msg.content)}</p>
+            `;
+            wrapper.appendChild(bubble);
+            chatStream.appendChild(wrapper);
+        }
+
+        function appendSystemMessageBubble(msg) {
+            const chatStream = document.getElementById('chatStream');
+            const div = document.createElement('div');
+            div.className = 'flex justify-center my-1';
+            div.setAttribute('data-msg-id', msg.id);
+            div.innerHTML = `
+                <span class="bg-industrial-800/80 border border-industrial-700 rounded-full px-3 py-1 text-[11px] text-slate-400 font-mono">
+                    <i class="fa-solid fa-circle-info mr-1 text-industrial-accent"></i> ${escapeHtml(msg.content)}
+                </span>
+            `;
+            chatStream.appendChild(div);
+        }
+
+        function appendAssistantMessageBubble(msg) {
+            const chatStream = document.getElementById('chatStream');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex space-x-3 items-start max-w-4xl';
+            wrapper.setAttribute('data-msg-id', msg.id);
+
+            const icon = document.createElement('div');
+            icon.className = 'w-8 h-8 rounded bg-industrial-accent border border-industrial-accent flex items-center justify-center text-black shrink-0 text-sm font-bold shadow';
+            icon.innerHTML = '<i class="fa-solid fa-robot"></i>';
+            wrapper.appendChild(icon);
+
+            if (msg.sop_id) {
+                const sopContainer = document.createElement('div');
+                sopContainer.id = `sop-card-${msg.sop_id}`;
+                sopContainer.className = 'flex-1 sop-card-container';
+                sopContainer.innerHTML = '<div class="p-3 bg-industrial-800 rounded-xl border border-industrial-700 text-xs text-slate-400 font-mono"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Loading procedure details...</div>';
+                wrapper.appendChild(sopContainer);
+                chatStream.appendChild(wrapper);
+                renderSopCardInto(msg.sop_id, sopContainer);
+            } else {
+                let aiProblemHtml = '';
+                if (window.lastRagStrategy && window.lastRagStrategy.understood_problem) {
+                    const strat = window.lastRagStrategy;
+                    window.lastRagStrategy = null;
+                    const searchBadges = (strat.search_queries || []).slice(0, 3).map(sq => `
+                        <span class="bg-industrial-900 text-slate-300 px-1.5 py-0.5 rounded border border-industrial-700 text-[9px]"><i class="fa-solid fa-magnifying-glass text-industrial-cyan/70 mr-1"></i>${escapeHtml(sq)}</span>
+                    `).join(' ');
+                    aiProblemHtml = `
+                        <div class="mb-3 p-2.5 rounded-lg bg-industrial-900/80 border border-industrial-cyan/30 text-[11px] font-mono space-y-1">
+                            <div class="flex items-center justify-between text-industrial-cyan text-[10px] font-bold uppercase">
+                                <span class="flex items-center gap-1.5"><i class="fa-solid fa-brain text-industrial-accent"></i> AI Decided Problem Intent & Retrieval Strategy</span>
+                                <span class="text-[9px] bg-industrial-cyan/15 px-1.5 py-0.5 rounded border border-industrial-cyan/30">${escapeHtml(strat.method || 'AI-Optimized')}</span>
+                            </div>
+                            <div class="text-slate-200"><span class="text-slate-400">Understood: </span><strong class="text-white">${escapeHtml(strat.understood_problem)}</strong></div>
+                            ${searchBadges ? `<div class="flex flex-wrap items-center gap-1 pt-0.5"><span class="text-slate-500 text-[10px]">Searched:</span> ${searchBadges}</div>` : ''}
+                        </div>
+                    `;
+                }
+
+                const panel = document.createElement('section');
+                panel.className = 'flex-1 rounded-xl border border-industrial-700 bg-industrial-800 p-4 space-y-3 shadow';
+                panel.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-industrial-700/60 pb-2">
+                        <h3 class="text-xs font-bold text-slate-100 uppercase tracking-wide font-mono">Assistant Reply</h3>
+                        <span class="text-[10px] text-slate-400 font-mono">${formatTime(msg.created_at)}</span>
+                    </div>
+                    ${aiProblemHtml}
+                    <div class="text-xs leading-relaxed text-slate-200">${renderRichContent(msg.content)}</div>
+                    <div class="flex items-center justify-between border-t border-industrial-700 pt-2">
+                        <span class="text-[10px] font-mono text-slate-400">Approved Knowledge Base Response</span>
+                        <button type="button" class="read-aloud-btn rounded px-2 py-1 text-xs text-slate-300 hover:text-industrial-accent">
+                            <i class="fa-solid fa-volume-high mr-1"></i> Read aloud
+                        </button>
+                    </div>
+                `;
+                panel.querySelector('.read-aloud-btn').addEventListener('click', () => speakText(msg.content));
+                wrapper.appendChild(panel);
+                chatStream.appendChild(wrapper);
+
+                if (window.mermaid) {
+                    setTimeout(() => {
+                        const mNodes = panel.querySelectorAll('.mermaid');
+                        if (mNodes.length > 0) {
+                            mermaid.run({ nodes: mNodes }).catch(e => console.warn('Mermaid render error:', e));
+                        }
+                    }, 50);
+                }
+            }
+        }
+
+        // ---- SOP Rendering & Lifecycle ----
+        async function renderSopCardInto(sopId, container) {
+            try {
+                const response = await fetch(`/api/sops/${sopId}`);
+                if (!response.ok) throw new Error('Could not load SOP');
+                const sop = await response.json();
+                const isAdmin = currentUser && currentUser.role === 'admin';
+
+                // Steps HTML
+                const stepsHtml = (sop.steps || []).map(step => {
+                    const citationsBadges = (step.citation_ids || []).map(c => `
+                        <span class="text-[10px] font-mono bg-industrial-900 border border-industrial-cyan text-industrial-cyan px-1.5 py-0.5 rounded">${escapeHtml(c)}</span>
+                    `).join(' ');
+
+                    return `
+                        <div class="rounded-lg bg-industrial-900/60 border border-industrial-700/70 p-3 space-y-2">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex items-start gap-2">
+                                    <span class="w-5 h-5 rounded-full bg-industrial-accent/20 border border-industrial-accent text-industrial-accent flex items-center justify-center font-mono font-bold text-xs shrink-0">${step.number}</span>
+                                    <span class="text-xs text-slate-100 leading-relaxed">${escapeHtml(step.instruction)}</span>
+                                </div>
+                                <div class="flex flex-wrap gap-1 shrink-0">${citationsBadges}</div>
+                            </div>
+                            ${step.caution ? `
+                                <div class="bg-industrial-warning/10 border-l-2 border-industrial-warning p-2 rounded text-[11px] text-amber-200 flex items-start gap-1.5">
+                                    <i class="fa-solid fa-triangle-exclamation text-industrial-warning mt-0.5 shrink-0"></i>
+                                    <span>${escapeHtml(step.caution)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                // Checks HTML
+                let checksSection = '';
+                if (sop.checks && sop.checks.length > 0) {
+                    const checksList = sop.checks.map(c => {
+                        const text = typeof c === 'string' ? c : (c.check || JSON.stringify(c));
+                        const citeIds = Array.isArray(c.citation_ids) ? c.citation_ids.map(id => `
+                            <span class="text-[10px] font-mono bg-industrial-900 border border-industrial-cyan text-industrial-cyan px-1.5 py-0.5 rounded">${escapeHtml(id)}</span>
+                        `).join(' ') : '';
+                        return `
+                            <div class="flex items-start justify-between gap-2 text-xs text-slate-300">
+                                <div class="flex items-start gap-2">
+                                    <i class="fa-solid fa-square-check text-industrial-success mt-0.5 shrink-0"></i>
+                                    <span>${escapeHtml(text)}</span>
+                                </div>
+                                ${citeIds ? `<div class="shrink-0">${citeIds}</div>` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                    checksSection = `
+                        <div class="space-y-1.5 pt-1">
+                            <span class="text-[11px] font-mono uppercase tracking-wide text-industrial-cyan block font-semibold"><i class="fa-solid fa-clipboard-check mr-1"></i>Verification Checks</span>
+                            <div class="space-y-1 bg-industrial-900/40 p-2.5 rounded-lg border border-industrial-700/50">
+                                ${checksList}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Figures HTML
+                let figuresSection = '';
+                if (sop.figures && sop.figures.length > 0) {
+                    const figureCards = sop.figures.map(fig => `
+                        <div onclick="openDiagramModal('Figure Citation - Page ${fig.page || 'N/A'}', '${escapeHtml(fig.caption || 'Manual Diagram')}', '${fig.url}')"
+                             class="cursor-pointer bg-industrial-900 border border-industrial-700 hover:border-industrial-cyan rounded-lg p-2 transition group">
+                            <img src="${fig.url}" alt="${escapeHtml(fig.caption)}" class="w-full h-24 object-cover rounded bg-industrial-800 border border-industrial-700 group-hover:scale-[1.02] transition">
+                            <div class="mt-1.5">
+                                <span class="text-[10px] font-mono text-slate-300 block truncate font-medium">${escapeHtml(fig.caption || 'Figure')}</span>
+                                <span class="text-[9px] font-mono text-industrial-cyan">${fig.page ? 'Page ' + fig.page : 'Extracted figure'}</span>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    figuresSection = `
+                        <div class="space-y-2 pt-1">
+                            <span class="text-[11px] font-mono uppercase tracking-wide text-industrial-accent block font-semibold"><i class="fa-solid fa-image mr-1"></i>Manual Figures & Schematics</span>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                ${figureCards}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Feedback List HTML
+                let feedbackListHtml = '';
+                if (sop.feedback && sop.feedback.length > 0) {
+                    feedbackListHtml = `
+                        <div class="space-y-2 pt-2 border-t border-industrial-700/60">
+                            <span class="text-[11px] font-mono uppercase tracking-wide text-slate-300 block font-semibold"><i class="fa-solid fa-comments text-industrial-cyan mr-1"></i>Field Feedback (${sop.feedback.length})</span>
+                            <div class="space-y-2">
+                                ${sop.feedback.map(f => {
+                                    let badgeClass = 'bg-industrial-danger/20 text-industrial-danger border-industrial-danger/40';
+                                    let badgeLabel = 'NOT FIXED';
+                                    if (f.outcome === 'fixed') {
+                                        badgeClass = 'bg-industrial-success/20 text-industrial-success border-industrial-success/40';
+                                        badgeLabel = 'FIXED';
+                                    } else if (f.outcome === 'partial') {
+                                        badgeClass = 'bg-industrial-warning/20 text-industrial-warning border-industrial-warning/40';
+                                        badgeLabel = 'PARTIAL';
+                                    }
+                                    return `
+                                        <div class="bg-industrial-900/70 border border-industrial-700/70 rounded-lg p-2.5 text-xs space-y-1">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-bold text-white">${escapeHtml(f.display_name)}</span>
+                                                    <span class="text-[9px] font-mono px-1.5 py-0.5 rounded border uppercase ${badgeClass}">${badgeLabel}</span>
+                                                </div>
+                                                <span class="text-[10px] font-mono text-slate-500">${formatTime(f.created_at)}</span>
+                                            </div>
+                                            <div class="text-slate-200"><span class="text-slate-400 font-mono text-[11px]">Applied: </span>${escapeHtml(f.applied_how)}</div>
+                                            ${f.notes ? `<div class="text-slate-300 italic"><span class="text-slate-400 font-mono not-italic text-[11px]">Notes: </span>${escapeHtml(f.notes)}</div>` : ''}
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Notes List HTML
+                let notesListHtml = '';
+                if (sop.notes && sop.notes.length > 0) {
+                    notesListHtml = `
+                        <div class="space-y-2 pt-2 border-t border-industrial-700/60">
+                            <span class="text-[11px] font-mono uppercase tracking-wide text-slate-300 block font-semibold"><i class="fa-solid fa-clipboard text-industrial-accent mr-1"></i>Engineer Notes (${sop.notes.length})</span>
+                            <div class="space-y-2">
+                                ${sop.notes.map(n => {
+                                    const isSyn = n.kind === 'synthesized';
+                                    return `
+                                        <div class="bg-industrial-900/70 border ${isSyn ? 'border-purple-500/40 bg-purple-950/20' : 'border-industrial-700/70'} rounded-lg p-2.5 text-xs space-y-1">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-bold text-white">${escapeHtml(n.display_name)}</span>
+                                                    <span class="text-[9px] font-mono px-1.5 py-0.5 rounded border uppercase ${isSyn ? 'bg-purple-900/30 text-purple-300 border-purple-500/40' : 'bg-industrial-700 text-slate-300 border-industrial-600'}">
+                                                        ${isSyn ? 'Synthesized' : 'Manual'}
+                                                    </span>
+                                                </div>
+                                                <span class="text-[10px] font-mono text-slate-500">${formatTime(n.created_at)}</span>
+                                            </div>
+                                            <div class="text-slate-200 leading-relaxed whitespace-pre-wrap">${escapeHtml(n.body)}</div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                let aiProblemBanner = '';
+                if (sop.rag_strategy && sop.rag_strategy.understood_problem) {
+                    const strat = sop.rag_strategy;
+                    const searchTargets = (strat.search_queries || []).map(sq => `
+                        <span class="bg-industrial-800 text-slate-300 px-1.5 py-0.5 rounded border border-industrial-700 text-[10px]"><i class="fa-solid fa-magnifying-glass text-industrial-cyan/70 mr-1"></i>${escapeHtml(sq)}</span>
+                    `).join(' ');
+                    aiProblemBanner = `
+                        <div class="bg-industrial-900/90 border border-industrial-cyan/40 rounded-lg p-2.5 text-[11px] font-mono space-y-1.5 shadow-sm">
+                            <div class="flex items-center justify-between text-industrial-cyan">
+                                <span class="font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                                    <i class="fa-solid fa-brain text-industrial-accent"></i> AI Decided Problem Intent & Retrieval Strategy
+                                </span>
+                                <span class="text-[9px] bg-industrial-cyan/15 px-1.5 py-0.5 rounded border border-industrial-cyan/30 text-industrial-cyan">${escapeHtml(strat.method || 'AI-Optimized')}</span>
+                            </div>
+                            <div class="text-slate-200">
+                                <span class="text-slate-400">Understood Problem: </span><strong class="text-white">${escapeHtml(strat.understood_problem)}</strong>
+                            </div>
+                            ${searchTargets ? `
+                                <div class="flex flex-wrap items-center gap-1 pt-0.5">
+                                    <span class="text-slate-500 text-[10px]">Targeted Manual Concepts:</span>
+                                    ${searchTargets}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+
+                let machineContextBanner = '';
+                if (sop.machine_name || sop.error_code || sop.module_name) {
+                    machineContextBanner = `
+                        <div class="flex flex-wrap items-center gap-2 bg-industrial-900/90 border border-industrial-700/80 rounded-lg p-2.5 text-[11px] font-mono">
+                            ${sop.machine_name ? `<span class="text-slate-200"><i class="fa-solid fa-gears text-industrial-cyan mr-1.5"></i><strong>Equipment:</strong> ${escapeHtml(sop.machine_name)} ${sop.machine_type ? `<span class="text-slate-400">(${escapeHtml(sop.machine_type)})</span>` : ''}</span>` : ''}
+                            ${sop.error_code ? `<span class="bg-industrial-accent/15 border border-industrial-accent/40 text-industrial-accent px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${escapeHtml(sop.error_code)}</span>` : ''}
+                            ${sop.module_name ? `<span class="text-slate-400 truncate max-w-sm"><i class="fa-solid fa-file-lines text-purple-400 mr-1.5"></i><strong>Module:</strong> ${escapeHtml(sop.module_name)}</span>` : ''}
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = `
+                    <div class="sop-card bg-industrial-800 border border-industrial-600 rounded-xl p-4 shadow-xl space-y-4">
+                        <!-- Header -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-industrial-700 pb-3">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded ${sop.status === 'reviewed' ? 'bg-industrial-success/20 text-industrial-success border border-industrial-success/40' : 'bg-industrial-warning/20 text-industrial-warning border border-industrial-warning/40'}">
+                                        <i class="fa-solid ${sop.status === 'reviewed' ? 'fa-check-circle' : 'fa-file-pen'} mr-1"></i>${sop.status === 'reviewed' ? 'Reviewed SOP' : 'Draft SOP'}
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 font-mono">By ${escapeHtml(sop.author || 'Engineer')} • ${formatTime(sop.created_at)}</span>
+                                </div>
+                                <h3 class="text-sm sm:text-base font-bold text-white mt-1">${escapeHtml(sop.title || 'Standard Operating Procedure')}</h3>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <a href="/api/sops/${sop.id}/export" target="_blank" class="bg-industrial-accent hover:bg-orange-600 text-black text-xs font-bold px-3 py-1.5 rounded transition flex items-center gap-1.5 shadow font-mono" title="Download 5-page dark executive engineering SOP report PDF">
+                                    <i class="fa-solid fa-file-pdf"></i> Download Executive Report (PDF)
+                                </a>
+                                <button onclick="exportSopPdf(${sop.id})" class="bg-industrial-cyan hover:bg-cyan-400 text-black text-xs font-bold px-2.5 py-1.5 rounded transition flex items-center gap-1 shadow">
+                                    <i class="fa-solid fa-download"></i> Export PDF
+                                </button>
+                                ${isAdmin && sop.status !== 'reviewed' ? `
+                                    <button onclick="reviewSop(${sop.id})" class="bg-industrial-success/20 hover:bg-industrial-success/40 text-green-300 border border-industrial-success/40 text-xs px-2.5 py-1.5 rounded transition flex items-center gap-1">
+                                        <i class="fa-solid fa-check-double"></i> Review
+                                    </button>
+                                ` : ''}
+                                ${isAdmin ? `
+                                    <button onclick="deleteSop(${sop.id})" class="bg-industrial-danger/20 hover:bg-industrial-danger/40 text-red-300 border border-industrial-danger/40 text-xs px-2.5 py-1.5 rounded transition" title="Delete SOP">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        ${aiProblemBanner}
+                        ${machineContextBanner}
+
+                        <!-- Problem Statement -->
+                        <div class="bg-industrial-900/80 rounded-lg p-3 border border-industrial-700/60">
+                            <span class="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">Problem Statement</span>
+                            <p class="text-xs text-slate-200 font-medium">${escapeHtml(sop.problem)}</p>
+                        </div>
+
+                        <!-- Numbered Steps -->
+                        <div class="space-y-2">
+                            <span class="text-[11px] font-mono uppercase tracking-wide text-industrial-cyan block font-semibold">Procedure Steps</span>
+                            ${stepsHtml}
+                        </div>
+
+                        <!-- Checks -->
+                        ${checksSection}
+
+                        <!-- Figures -->
+                        ${figuresSection}
+
+                        <!-- Action Toolbar -->
+                        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-industrial-700">
+                            <button onclick="openFeedbackModal(${sop.id})" class="bg-industrial-700 hover:bg-industrial-600 text-slate-200 text-xs px-3 py-1.5 rounded transition flex items-center gap-1.5 border border-industrial-600">
+                                <i class="fa-solid fa-comment-medical text-industrial-cyan"></i> Add Feedback
+                            </button>
+                            <button onclick="openNoteModal(${sop.id})" class="bg-industrial-700 hover:bg-industrial-600 text-slate-200 text-xs px-3 py-1.5 rounded transition flex items-center gap-1.5 border border-industrial-600">
+                                <i class="fa-solid fa-sticky-note text-industrial-accent"></i> Add Note
+                            </button>
+                            <button onclick="synthesizeNotes(${sop.id}, this)" class="bg-industrial-700 hover:bg-industrial-600 text-slate-200 text-xs px-3 py-1.5 rounded transition flex items-center gap-1.5 border border-industrial-600">
+                                <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> Generate notes from engineers
+                            </button>
+                        </div>
+
+                        <!-- Feedback & Notes Sections -->
+                        ${feedbackListHtml}
+                        ${notesListHtml}
+
+                        <!-- Footer -->
+                        <div class="text-[10px] text-slate-500 font-mono border-t border-industrial-700/50 pt-2 flex items-center justify-between">
+                            <span>Source-grounded draft • Not a certified plant SOP unless approved by human reviewer.</span>
+                            <span class="text-slate-400 font-mono">SOP #${sop.id}</span>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                container.innerHTML = `<div class="p-3 bg-industrial-danger/20 border border-industrial-danger/40 rounded text-xs text-industrial-danger">Failed to load SOP #${sopId}: ${e.message}</div>`;
+            }
+        }
+
+        async function refreshSopCard(sopId) {
+            const containers = document.querySelectorAll(`#sop-card-${sopId}`);
+            for (const c of containers) {
+                await renderSopCardInto(sopId, c);
+            }
+        }
+
+        async function exportSopPdf(sopId) {
+            try {
+                const response = await fetch(`/api/sops/${sopId}/export`, { method: 'POST' });
+                if (!response.ok) throw new Error('PDF export failed');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `SOP_${sopId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } catch (e) {
+                alert('Export error: ' + e.message);
+            }
+        }
+
+        async function reviewSop(sopId) {
+            try {
+                const response = await fetch(`/api/sops/${sopId}/review`, { method: 'POST' });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Review failed');
+                await refreshSopCard(sopId);
+            } catch (e) {
+                alert('Review error: ' + e.message);
+            }
+        }
+
+        async function deleteSop(sopId) {
+            if (!confirm(`Are you sure you want to permanently delete SOP #${sopId}?`)) return;
+            try {
+                const response = await fetch(`/api/sops/${sopId}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Delete failed');
+                const container = document.getElementById(`sop-card-${sopId}`);
+                if (container) {
+                    const cardMsg = container.closest('[data-msg-id]');
+                    if (cardMsg) cardMsg.remove();
+                    else container.remove();
+                }
+                appendNotice(`SOP #${sopId} deleted.`);
+            } catch (e) {
+                alert('Delete error: ' + e.message);
+            }
+        }
+
+        async function synthesizeNotes(sopId, btn) {
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Synthesizing...';
+            try {
+                const response = await fetch(`/api/sops/${sopId}/notes/synthesize`, { method: 'POST' });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Synthesis failed');
+                await refreshSopCard(sopId);
+                await pollSharedMessages();
+            } catch (e) {
+                alert('Synthesis error: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        }
+
+        // ---- Feedback & Note Modals ----
+        function openFeedbackModal(sopId) {
+            activeSopId = sopId;
+            document.getElementById('feedbackAppliedHow').value = '';
+            document.getElementById('feedbackOutcome').value = 'fixed';
+            document.getElementById('feedbackNotes').value = '';
+            document.getElementById('feedbackError').classList.add('hidden');
+            document.getElementById('feedbackModal').classList.remove('hidden');
+        }
+
+        function closeFeedbackModal() {
+            activeSopId = null;
+            document.getElementById('feedbackModal').classList.add('hidden');
+        }
+
+        async function submitFeedback(event) {
+            event.preventDefault();
+            if (!activeSopId) return;
+            const applied_how = document.getElementById('feedbackAppliedHow').value.trim();
+            const outcome = document.getElementById('feedbackOutcome').value;
+            const notes = document.getElementById('feedbackNotes').value.trim();
+            const errorDiv = document.getElementById('feedbackError');
+            errorDiv.classList.add('hidden');
+
+            try {
+                const response = await fetch(`/api/sops/${activeSopId}/feedback`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ applied_how, outcome, notes })
+                });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Failed to submit feedback');
+                const sopIdToRefresh = activeSopId;
+                closeFeedbackModal();
+                await refreshSopCard(sopIdToRefresh);
+                await pollSharedMessages();
+            } catch (e) {
+                errorDiv.textContent = e.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        function openNoteModal(sopId) {
+            activeSopId = sopId;
+            document.getElementById('noteBody').value = '';
+            document.getElementById('noteError').classList.add('hidden');
+            document.getElementById('noteModal').classList.remove('hidden');
+        }
+
+        function closeNoteModal() {
+            activeSopId = null;
+            document.getElementById('noteModal').classList.add('hidden');
+        }
+
+        async function submitNote(event) {
+            event.preventDefault();
+            if (!activeSopId) return;
+            const body = document.getElementById('noteBody').value.trim();
+            const errorDiv = document.getElementById('noteError');
+            errorDiv.classList.add('hidden');
+
+            try {
+                const response = await fetch(`/api/sops/${activeSopId}/notes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body })
+                });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Failed to submit note');
+                const sopIdToRefresh = activeSopId;
+                closeNoteModal();
+                await refreshSopCard(sopIdToRefresh);
+                await pollSharedMessages();
+            } catch (e) {
+                errorDiv.textContent = e.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        // ---- Send User Query ----
+        async function sendUserQuery(isGenerateSop = false) {
+            const inputEl = document.getElementById('userQueryInput');
+            const queryText = inputEl.value.trim();
+            if (!queryText) return;
+
+            // Operational context fields
+            const machineName = document.getElementById('chatMachineName')?.value?.trim() || '';
+            const machineType = document.getElementById('chatMachineType')?.value?.trim() || '';
+            const errorCode = document.getElementById('chatErrorCode')?.value?.trim() || '';
+            const expertNotes = document.getElementById('chatExpertNotes')?.value?.trim() || '';
+            const moduleName = document.getElementById('chatModuleSelect')?.value?.trim() || '';
+
+            // Append optimistic user bubble
+            const chatStream = document.getElementById('chatStream');
+            const optDiv = document.createElement('div');
+            optDiv.className = 'flex justify-end optimistic-msg';
+
+            let contextPills = '';
+            if (machineName || errorCode || moduleName) {
+                contextPills = `
+                    <div class="flex flex-wrap gap-1 mt-1.5 pt-1.5 border-t border-industrial-600/60 text-[10px] font-mono">
+                        ${machineName ? `<span class="bg-industrial-800 text-industrial-cyan px-1.5 py-0.5 rounded border border-industrial-700"><i class="fa-solid fa-gears mr-1"></i>${escapeHtml(machineName)}</span>` : ''}
+                        ${errorCode ? `<span class="bg-industrial-800 text-industrial-accent px-1.5 py-0.5 rounded border border-industrial-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${escapeHtml(errorCode)}</span>` : ''}
+                        ${moduleName ? `<span class="bg-industrial-800 text-purple-300 px-1.5 py-0.5 rounded border border-industrial-700"><i class="fa-solid fa-book mr-1"></i>${escapeHtml(moduleName)}</span>` : ''}
+                    </div>
+                `;
+            }
+
+            optDiv.innerHTML = `
+                <div class="max-w-xl rounded-xl border border-industrial-600 bg-industrial-700 p-3 opacity-80">
+                    <div class="mb-1 text-[10px] font-mono text-industrial-cyan text-right flex items-center justify-between">
+                        ${isGenerateSop ? '<span class="text-[9px] bg-industrial-cyan/20 border border-industrial-cyan/40 text-industrial-cyan px-1.5 py-0.5 rounded font-mono font-bold"><i class="fa-solid fa-file-shield mr-1"></i>GENERATE SOP</span>' : '<span></span>'}
+                        <span>${currentUser ? escapeHtml(currentUser.display_name) : 'Operator'} • Sending...</span>
+                    </div>
+                    <p class="text-xs font-medium text-slate-100 whitespace-pre-wrap">${escapeHtml(queryText)}</p>
+                    ${contextPills}
+                </div>
+            `;
+            chatStream.appendChild(optDiv);
+
+            // Append temporary thinking indicator
+            const thinking = document.createElement('div');
+            thinking.id = 'thinkingIndicator';
+            thinking.className = 'flex space-x-3 items-center max-w-xl text-xs text-slate-400 font-mono py-2';
+            thinking.innerHTML = `
+                <div class="w-8 h-8 rounded bg-industrial-800 border border-industrial-700 flex items-center justify-center text-industrial-accent">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                </div>
+                <span>${isGenerateSop ? 'Synthesizing 5-page Executive Engineering SOP & compiling vector diagrams...' : 'Retrieving approved evidence & procedures...'}</span>
+            `;
+            chatStream.appendChild(thinking);
+            chatStream.scrollTop = chatStream.scrollHeight;
+
+            const payload = {
+                query: queryText,
+                session_id: currentChatSessionId || sharedSessionId,
+                generate_sop: Boolean(isGenerateSop)
+            };
+            if (selectedDocId !== null) payload.document_id = selectedDocId;
+            if (currentUploadedImage) payload.image = currentUploadedImage;
+            if (currentAudio) payload.audio = currentAudio;
+
+            if (machineName) payload.machine_name = machineName;
+            if (machineType) payload.machine_type = machineType;
+            if (errorCode) payload.error_code = errorCode;
+            if (expertNotes) payload.expert_notes = expertNotes;
+            if (moduleName) payload.module_name = moduleName;
+
+            inputEl.value = '';
+            removeUploadedImage();
+            removeUploadedAudio();
+
+            const submitBtns = document.querySelectorAll('#assistantView button[onclick^="sendUserQuery"]');
+            submitBtns.forEach(btn => btn.disabled = true);
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Request failed');
+
+                if (result.rag_strategy && result.rag_strategy.understood_problem) {
+                    window.lastRagStrategy = result.rag_strategy;
+                }
+
+                // Poll immediately to reconcile database-persisted messages
+                await pollSharedMessages();
+                await loadChatSessionsList();
+                refreshAnalytics();
+            } catch (error) {
+                if (thinking) thinking.remove();
+                optDiv.remove();
+                appendNotice(`Could not reach the evidence API: ${error.message}`, true);
+            } finally {
+                submitBtns.forEach(btn => btn.disabled = false);
+                const th = document.getElementById('thinkingIndicator');
+                if (th) th.remove();
+            }
+        }
+
+        // ---- Invite Panel & Modals ----
+        function openInvitePanel() {
+            document.getElementById('inviteModal').classList.remove('hidden');
+            document.getElementById('copyNotice').classList.add('hidden');
+            const adminSection = document.getElementById('adminDirectAddSection');
+            if (adminSection) {
+                if (currentUser && currentUser.role === 'admin') {
+                    adminSection.classList.remove('hidden');
+                } else {
+                    adminSection.classList.add('hidden');
+                }
+            }
+        }
+
+        function closeInvitePanel() {
+            document.getElementById('inviteModal').classList.add('hidden');
+        }
+
+        async function generateNewInvite() {
+            try {
+                const response = await fetch('/api/invites', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Failed to create invite');
+                const data = await response.json();
+                const fullUrl = window.location.origin + data.url;
+                const input = document.getElementById('generatedInviteUrl');
+                input.value = fullUrl;
+                input.select();
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        function copyInviteLink() {
+            const input = document.getElementById('generatedInviteUrl');
+            if (!input.value) return;
+            navigator.clipboard.writeText(input.value).then(() => {
+                document.getElementById('copyNotice').classList.remove('hidden');
+                setTimeout(() => {
+                    const notice = document.getElementById('copyNotice');
+                    if (notice) notice.classList.add('hidden');
+                }, 3000);
+            });
+        }
+
+        async function handleDirectAddUser(event) {
+            event.preventDefault();
+            const username = document.getElementById('directAddUsername').value.trim();
+            const display_name = document.getElementById('directAddDisplayName').value.trim();
+            const password = document.getElementById('directAddPassword').value;
+            const role = document.getElementById('directAddRole').value;
+            const statusDiv = document.getElementById('directAddStatus');
+
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, display_name, password, role })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Failed to create user');
+                statusDiv.textContent = `User '${username}' created successfully!`;
+                statusDiv.className = 'text-xs py-1.5 px-2 rounded bg-industrial-success/20 text-industrial-success border border-industrial-success/40';
+                statusDiv.classList.remove('hidden');
+                document.getElementById('directAddUsername').value = '';
+                document.getElementById('directAddDisplayName').value = '';
+                document.getElementById('directAddPassword').value = '';
+                if (activeView === 'admin') loadAdminData();
+            } catch (e) {
+                statusDiv.textContent = e.message;
+                statusDiv.className = 'text-xs py-1.5 px-2 rounded bg-industrial-danger/20 text-industrial-danger border border-industrial-danger/40';
+                statusDiv.classList.remove('hidden');
+            }
+        }
+
+        function openChangePasswordModal() {
+            document.getElementById('changePasswordModal').classList.remove('hidden');
+            document.getElementById('changePasswordStatus').classList.add('hidden');
+        }
+
+        function closeChangePasswordModal() {
+            document.getElementById('changePasswordModal').classList.add('hidden');
+        }
+
+        async function handleChangePassword(event) {
+            event.preventDefault();
+            const current_password = document.getElementById('currentPasswordInput').value;
+            const new_password = document.getElementById('newPasswordInput').value;
+            const statusDiv = document.getElementById('changePasswordStatus');
+
+            try {
+                const response = await fetch('/api/auth/password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password, new_password })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Password change failed');
+                statusDiv.textContent = 'Password changed successfully!';
+                statusDiv.className = 'text-xs p-2 rounded bg-industrial-success/20 text-industrial-success border border-industrial-success/40';
+                statusDiv.classList.remove('hidden');
+
+                const appPwBanner = document.getElementById('appChangePasswordBanner');
+                if (appPwBanner) appPwBanner.classList.add('hidden');
+
+                setTimeout(() => {
+                    closeChangePasswordModal();
+                    document.getElementById('currentPasswordInput').value = '';
+                    document.getElementById('newPasswordInput').value = '';
+                }, 1200);
+            } catch (e) {
+                statusDiv.textContent = e.message;
+                statusDiv.className = 'text-xs p-2 rounded bg-industrial-danger/20 text-industrial-danger border border-industrial-danger/40';
+                statusDiv.classList.remove('hidden');
+            }
+        }
+
+        // ---- Rich Text, Markdown & Mermaid Rendering ----
+        function renderRichContent(rawText) {
+            if (!rawText) return '';
+            let text = String(rawText);
+
+            // 1. Extract and preserve ```mermaid ... ``` code blocks
+            const mermaidBlocks = [];
+            text = text.replace(/```mermaid([\s\S]*?)```/gi, (match, code) => {
+                const id = 'mm_' + Math.random().toString(36).substring(2, 9);
+                mermaidBlocks.push({ id, code: code.trim() });
+                return `__MERMAID_BLOCK_${id}__`;
+            });
+
+            // 2. Extract and preserve generic code blocks ``` ... ```
+            const codeBlocks = [];
+            text = text.replace(/```([a-z0-9_-]*)([\s\S]*?)```/gi, (match, lang, code) => {
+                const id = 'cb_' + Math.random().toString(36).substring(2, 9);
+                codeBlocks.push({ id, lang: lang.trim(), code: escapeHtml(code.trim()) });
+                return `__CODE_BLOCK_${id}__`;
+            });
+
+            // 3. HTML escape remaining text
+            let escaped = escapeHtml(text);
+
+            // 4. Headers: ### Header -> <h4>, ## Header -> <h3>
+            escaped = escaped.replace(/^### (.*?)$/gm, '<h4 class="text-sm font-bold text-white mt-3 mb-1 font-mono flex items-center gap-1.5"><i class="fa-solid fa-angle-right text-industrial-cyan text-xs"></i>$1</h4>');
+            escaped = escaped.replace(/^## (.*?)$/gm, '<h3 class="text-sm font-bold text-industrial-accent mt-3 mb-1 uppercase tracking-wider font-mono">$1</h3>');
+
+            // 5. Bold & Italic
+            escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+            escaped = escaped.replace(/\*(.*?)\*/g, '<em class="text-slate-300 italic">$1</em>');
+
+            // 6. Inline code
+            escaped = escaped.replace(/`([^`]+)`/g, '<code class="bg-industrial-900 text-industrial-cyan px-1.5 py-0.5 rounded text-[11px] font-mono border border-industrial-700/60">$1</code>');
+
+            // 7. Bullets (- item or * item)
+            escaped = escaped.replace(/^[*-] (.*?)$/gm, '<div class="flex items-start gap-2 my-1 text-xs text-slate-200"><span class="text-industrial-accent font-bold">•</span><span>$1</span></div>');
+
+            // 8. Citations [S1], [S2]
+            escaped = escaped.replace(/\[(S\d+)\]/g, '<span class="bg-industrial-900 border border-industrial-cyan text-industrial-cyan px-1.5 py-0.5 rounded text-[10px] font-mono font-bold">$1</span>');
+
+            // 9. Re-insert generic code blocks
+            for (const cb of codeBlocks) {
+                const replacement = `<pre class="bg-industrial-950 border border-industrial-700 rounded p-2.5 my-2 text-[11px] font-mono text-slate-200 overflow-x-auto"><code>${cb.code}</code></pre>`;
+                escaped = escaped.replace(`__CODE_BLOCK_${cb.id}__`, replacement);
+            }
+
+            // 10. Re-insert mermaid blocks
+            for (const mb of mermaidBlocks) {
+                const replacement = `
+                    <div class="my-3 p-3 bg-industrial-950 border border-industrial-700 rounded-xl overflow-x-auto text-center shadow-inner">
+                        <div class="text-[10px] font-mono text-industrial-cyan mb-2 text-left flex items-center gap-1.5 border-b border-industrial-800 pb-1">
+                            <i class="fa-solid fa-diagram-project text-industrial-accent"></i> Workflow Architecture / Process Diagram
+                        </div>
+                        <pre class="mermaid text-xs font-mono">${escapeHtml(mb.code)}</pre>
+                    </div>
+                `;
+                escaped = escaped.replace(`__MERMAID_BLOCK_${mb.id}__`, replacement);
+            }
+
+            // Line breaks
+            escaped = escaped.replace(/\n\n/g, '<div class="h-2"></div>');
+
+            return escaped;
+        }
+
+        // ---- Admin Model Management Functions ----
+        let currentModelConfig = null;
+
+        async function loadModelConfig() {
+            try {
+                const response = await fetch('/api/admin/model-config');
+                if (!response.ok) return;
+                const data = await response.json();
+                currentModelConfig = data;
+                renderModelConfigUI(data);
+            } catch (e) {
+                console.error('Failed to load model config:', e);
+            }
+        }
+
+        function renderModelConfigUI(cfg) {
+            if (!cfg) return;
+            const isGemini = cfg.provider === 'gemini';
+
+            // Badges & Status
+            const activeText = document.getElementById('activeModelText');
+            if (activeText) {
+                activeText.textContent = isGemini ? `GEMINI: ${cfg.gemini_model}` : `NVIDIA: ${cfg.nvidia_model}`;
+            }
+            const activeBadge = document.getElementById('activeModelBadge');
+            if (activeBadge) {
+                if (isGemini) {
+                    activeBadge.className = 'text-xs px-2.5 py-1 rounded font-mono font-bold bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center gap-1.5';
+                } else {
+                    activeBadge.className = 'text-xs px-2.5 py-1 rounded font-mono font-bold bg-green-500/20 text-green-400 border border-green-500/40 flex items-center gap-1.5';
+                }
+            }
+
+            // Cards styling
+            const geminiCard = document.getElementById('geminiCard');
+            const nvidiaCard = document.getElementById('nvidiaCard');
+            const geminiRadio = document.getElementById('geminiRadio');
+            const nvidiaRadio = document.getElementById('nvidiaRadio');
+            const geminiRadioInner = document.getElementById('geminiRadioInner');
+            const nvidiaRadioInner = document.getElementById('nvidiaRadioInner');
+
+            if (geminiCard && nvidiaCard) {
+                if (isGemini) {
+                    geminiCard.className = 'cursor-pointer border-2 rounded-xl p-4 transition-all bg-industrial-900 border-industrial-cyan shadow-lg shadow-cyan-950/40 relative';
+                    nvidiaCard.className = 'cursor-pointer border-2 rounded-xl p-4 transition-all bg-industrial-900 border-industrial-700 opacity-60 hover:opacity-100 hover:border-slate-500 relative';
+                    if (geminiRadio) geminiRadio.className = 'w-5 h-5 rounded-full border-2 border-industrial-cyan flex items-center justify-center';
+                    if (geminiRadioInner) geminiRadioInner.className = 'w-2.5 h-2.5 rounded-full bg-industrial-cyan';
+                    if (nvidiaRadio) nvidiaRadio.className = 'w-5 h-5 rounded-full border-2 border-slate-600 flex items-center justify-center';
+                    if (nvidiaRadioInner) nvidiaRadioInner.className = 'w-2.5 h-2.5 rounded-full bg-transparent';
+                } else {
+                    nvidiaCard.className = 'cursor-pointer border-2 rounded-xl p-4 transition-all bg-industrial-900 border-green-500 shadow-lg shadow-green-950/40 relative';
+                    geminiCard.className = 'cursor-pointer border-2 rounded-xl p-4 transition-all bg-industrial-900 border-industrial-700 opacity-60 hover:opacity-100 hover:border-slate-500 relative';
+                    if (nvidiaRadio) nvidiaRadio.className = 'w-5 h-5 rounded-full border-2 border-green-500 flex items-center justify-center';
+                    if (nvidiaRadioInner) nvidiaRadioInner.className = 'w-2.5 h-2.5 rounded-full bg-green-500';
+                    if (geminiRadio) geminiRadio.className = 'w-5 h-5 rounded-full border-2 border-slate-600 flex items-center justify-center';
+                    if (geminiRadioInner) geminiRadioInner.className = 'w-2.5 h-2.5 rounded-full bg-transparent';
+                }
+            }
+
+            // Dropdowns
+            const geminiSelect = document.getElementById('geminiModelSelect');
+            if (geminiSelect && cfg.gemini_model) {
+                geminiSelect.value = cfg.gemini_model;
+            }
+            const nvidiaSelect = document.getElementById('nvidiaModelSelect');
+            if (nvidiaSelect && cfg.nvidia_model) {
+                nvidiaSelect.value = cfg.nvidia_model;
+            }
+
+            const engineDetail = document.getElementById('engineStatusDetail');
+            if (engineDetail) {
+                const keyStatus = isGemini ? (cfg.has_gemini_key ? 'Active (API Key Verified)' : 'Key Missing') : (cfg.has_nvidia_key ? 'Active (API Key Verified)' : 'Key Missing');
+                engineDetail.textContent = `${isGemini ? 'Google Gemini' : 'NVIDIA NIM'} • ${keyStatus}`;
+            }
+        }
+
+        async function selectModelProvider(provider) {
+            const selectEl = provider === 'gemini' ? document.getElementById('geminiModelSelect') : document.getElementById('nvidiaModelSelect');
+            const model = selectEl ? selectEl.value : null;
+            await updateModelConfig(provider, model);
+        }
+
+        async function onModelDropdownChange(provider, model) {
+            await updateModelConfig(provider, model);
+        }
+
+        async function updateModelConfig(provider, model) {
+            try {
+                const response = await fetch('/api/admin/model-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider, model })
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Failed to update model');
+                }
+                const data = await response.json();
+                currentModelConfig = data.config;
+                renderModelConfigUI(data.config);
+            } catch (e) {
+                alert('Model Update Failed: ' + e.message);
+            }
+        }
+
+        async function testActiveModel() {
+            const btn = document.getElementById('testModelBtn');
+            const resultBox = document.getElementById('testModelResult');
+            const latencyBadge = document.getElementById('modelLatencyBadge');
+            if (!btn || !resultBox) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Measuring Latency...';
+            resultBox.classList.remove('hidden');
+            resultBox.innerHTML = '<p class="text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Sending test prompt and awaiting response from LLM...</p>';
+
+            try {
+                const response = await fetch('/api/admin/model-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: "Provide a 2-sentence confirmation of online status with a simple 3-node mermaid flowchart diagram."
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || data.detail || 'Test failed');
+                }
+
+                if (latencyBadge) {
+                    latencyBadge.textContent = `${data.latency_ms} ms roundtrip`;
+                    latencyBadge.classList.remove('hidden');
+                }
+
+                resultBox.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-industrial-700/60 pb-1.5">
+                        <span class="text-green-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> Model Test Successful</span>
+                        <span class="text-slate-400">${data.latency_ms} ms • ${escapeHtml(data.model)}</span>
+                    </div>
+                    <div class="text-slate-200 mt-2 space-y-2">
+                        ${renderRichContent(data.reply)}
+                    </div>
+                `;
+                if (window.mermaid) {
+                    setTimeout(() => {
+                        const mNodes = resultBox.querySelectorAll('.mermaid');
+                        if (mNodes.length > 0) {
+                            mermaid.run({ nodes: mNodes }).catch(e => console.warn('Mermaid render error:', e));
+                        }
+                    }, 50);
+                }
+            } catch (err) {
+                resultBox.innerHTML = `
+                    <div class="text-red-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Model Test Failed</div>
+                    <p class="text-red-300 mt-1">${escapeHtml(err.message)}</p>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-bolt text-industrial-warning"></i> Test Model Latency & Response';
+            }
+        }
+
+        // ---- Admin Management Functions ----
+        async function loadAdminData() {
+            await loadModelConfig();
+            await loadUsers();
+            await loadPendingDocuments();
+        }
+
+        async function loadUsers() {
+            const userList = document.getElementById('userList');
+            try {
+                const response = await fetch('/api/users');
+                if (!response.ok) throw new Error('Failed to load users');
+                const data = await response.json();
+                userList.innerHTML = '';
+                if (!data.users || data.users.length === 0) {
+                    userList.innerHTML = '<p class="text-xs text-slate-400">No users found.</p>';
+                    return;
+                }
+                data.users.forEach(u => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between p-3 rounded-lg bg-industrial-900 border border-industrial-700';
+                    const roleBadgeClass = u.role === 'admin' ? 'bg-industrial-accent/20 text-industrial-accent border-industrial-accent/40' : 'bg-industrial-cyan/20 text-industrial-cyan border-industrial-cyan/40';
+                    const statusBadgeClass = u.disabled ? 'bg-industrial-danger/20 text-industrial-danger border-industrial-danger/40' : 'bg-industrial-success/20 text-industrial-success border-industrial-success/40';
+                    row.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded bg-industrial-800 flex items-center justify-center font-bold text-xs text-slate-300">
+                                ${escapeHtml((u.display_name || u.username)[0].toUpperCase())}
+                            </div>
+                            <div>
+                                <div class="text-xs font-semibold text-white flex items-center gap-2">
+                                    <span>${escapeHtml(u.display_name)}</span>
+                                    <span class="text-[10px] text-slate-400 font-mono">@${escapeHtml(u.username)}</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded border font-mono uppercase ${roleBadgeClass}">${u.role}</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded border font-mono ${statusBadgeClass}">${u.disabled ? 'Disabled' : 'Active'}</span>
+                                </div>
+                                <div class="text-[10px] text-slate-500 font-mono mt-0.5">Created ${new Date(u.created_at).toLocaleDateString()}</div>
+                            </div>
+                        </div>
+                        <div>
+                            ${u.disabled ? `
+                                <button onclick="enableUser(${u.id})" class="bg-industrial-success/20 hover:bg-industrial-success/40 text-green-300 border border-industrial-success/40 text-xs px-3 py-1 rounded transition">
+                                    Enable
+                                </button>
+                            ` : `
+                                <button onclick="disableUser(${u.id})" class="bg-industrial-danger/20 hover:bg-industrial-danger/40 text-red-300 border border-industrial-danger/40 text-xs px-3 py-1 rounded transition">
+                                    Disable
+                                </button>
+                            `}
+                        </div>
+                    `;
+                    userList.appendChild(row);
+                });
+            } catch (e) {
+                userList.innerHTML = `<p class="text-xs text-industrial-danger">${e.message}</p>`;
+            }
+        }
+
+        async function loadPendingDocuments() {
+            const list = document.getElementById('pendingDocsList');
+            try {
+                const response = await fetch('/api/documents');
+                if (!response.ok) throw new Error('Failed to load documents');
+                const data = await response.json();
+                const pending = (data.documents || []).filter(d => !d.approved && !d.rejected);
+                list.innerHTML = '';
+                if (!pending.length) {
+                    list.innerHTML = '<p class="text-xs text-slate-400 p-2">No documents currently waiting for review.</p>';
+                    return;
+                }
+                pending.forEach(d => {
+                    const card = document.createElement('div');
+                    card.className = 'flex flex-wrap items-center justify-between p-3 rounded-lg bg-industrial-900 border border-industrial-700 gap-3';
+                    card.innerHTML = `
+                        <div>
+                            <div class="text-xs font-bold text-white">${escapeHtml(d.name)}</div>
+                            <div class="text-[10px] text-slate-400 font-mono mt-0.5">
+                                Uploaded by: ${escapeHtml(d.source)} • ${d.page_count ? d.page_count + ' page(s)' : 'File'} • ${d.asset_count || 0} figures
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="approveDocument(${d.id})" class="bg-industrial-success/20 hover:bg-industrial-success/40 text-green-300 border border-industrial-success/40 text-xs px-3 py-1.5 rounded transition flex items-center gap-1 font-semibold">
+                                <i class="fa-solid fa-check"></i> Approve
+                            </button>
+                            <button onclick="rejectDocument(${d.id})" class="bg-industrial-warning/20 hover:bg-industrial-warning/40 text-yellow-300 border border-industrial-warning/40 text-xs px-3 py-1.5 rounded transition flex items-center gap-1">
+                                <i class="fa-solid fa-ban"></i> Reject
+                            </button>
+                            <button onclick="deleteDocument(${d.id})" class="bg-industrial-danger/20 hover:bg-industrial-danger/40 text-red-300 border border-industrial-danger/40 text-xs px-3 py-1.5 rounded transition flex items-center gap-1">
+                                <i class="fa-solid fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+            } catch (e) {
+                list.innerHTML = `<p class="text-xs text-industrial-danger">${e.message}</p>`;
+            }
+        }
+
+        async function approveDocument(documentId) {
+            try {
+                const response = await fetch(`/api/documents/${documentId}/approve`, { method: 'POST' });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Approval failed');
+                await loadDocuments();
+                if (activeView === 'admin') await loadAdminData();
+                appendNotice('Document approved for indexing.');
+                refreshAnalytics();
+            } catch (error) {
+                appendNotice(error.message, true);
+            }
+        }
+
+        async function rejectDocument(documentId) {
+            try {
+                const response = await fetch(`/api/documents/${documentId}/reject`, { method: 'POST' });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Rejection failed');
+                await loadDocuments();
+                if (activeView === 'admin') await loadAdminData();
+                appendNotice('Document marked as rejected.');
+                refreshAnalytics();
+            } catch (error) {
+                appendNotice(error.message, true);
+            }
+        }
+
+        async function deleteDocument(documentId) {
+            if (!confirm('Are you sure you want to permanently delete this document and its figures?')) return;
+            try {
+                const response = await fetch(`/api/documents/${documentId}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Deletion failed');
+                await loadDocuments();
+                if (activeView === 'admin') await loadAdminData();
+                appendNotice('Document permanently deleted.');
+                refreshAnalytics();
+            } catch (error) {
+                appendNotice(error.message, true);
+            }
+        }
+
+        async function enableUser(userId) {
+            try {
+                const response = await fetch(`/api/users/${userId}/enable`, { method: 'POST' });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Failed to enable user');
+                await loadUsers();
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        async function disableUser(userId) {
+            try {
+                const response = await fetch(`/api/users/${userId}/disable`, { method: 'POST' });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Failed to disable user');
+                await loadUsers();
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        // =========================================================================
+        // DEDICATED CHAT SESSIONS & COLLABORATIVE WORKORDERS
+        // =========================================================================
+
+        async function loadChatSessionsList() {
+            try {
+                const res = await fetch('/api/chat/sessions');
+                if (!res.ok) return;
+                const data = await res.json();
+                chatSessionsList = data.sessions || [];
+
+                const countBadge = document.getElementById('chatCountBadge');
+                if (countBadge) countBadge.textContent = chatSessionsList.length;
+
+                renderChatSessionsList(chatSessionsList);
+            } catch (e) {
+                console.error('Failed to load chat sessions:', e);
+            }
+        }
+
+        function renderChatSessionsList(sessions) {
+            const container = document.getElementById('chatSessionsContainer');
+            if (!container) return;
+
+            if (sessions.length === 0) {
+                container.innerHTML = '<div class="p-4 text-center text-xs text-slate-400">No saved machine sessions yet.</div>';
+                return;
+            }
+
+            container.innerHTML = sessions.map(s => {
+                const isActive = s.id === currentChatSessionId;
+                const machineTag = s.machine_id ? `<span class="bg-industrial-accent/20 text-industrial-accent font-mono text-[9px] px-1.5 py-0.5 rounded border border-industrial-accent/30 font-bold">${escapeHtml(s.machine_id)}</span>` : '<span class="bg-industrial-cyan/20 text-industrial-cyan font-mono text-[9px] px-1.5 py-0.5 rounded border border-industrial-cyan/30">STREAM</span>';
+                const memberBadges = (s.members || []).map(m => `
+                    <span class="inline-block w-4 h-4 rounded-full bg-industrial-700 text-[8px] flex items-center justify-center font-bold text-slate-200 border border-industrial-600" title="${escapeHtml(m.display_name)} (${escapeHtml(m.user_role || m.role || '')})">
+                        ${escapeHtml(m.display_name.charAt(0).toUpperCase())}
+                    </span>
+                `).join('');
+
+                const lastSnippet = s.last_message ? s.last_message.content : (s.problem_title || 'Session initialized');
+
+                return `
+                    <div onclick="switchToChatSession('${s.id}')" class="p-2.5 rounded-lg cursor-pointer transition ${isActive ? 'bg-industrial-800 border border-industrial-accent/50' : 'hover:bg-industrial-800/60'}">
+                        <div class="flex items-center justify-between gap-1 mb-1">
+                            <div class="flex items-center space-x-1.5 min-w-0">
+                                ${machineTag}
+                                <span class="font-bold text-xs text-slate-100 truncate">${escapeHtml(s.name || s.problem_title || 'Workorder')}</span>
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-mono shrink-0">${formatTime(s.updated_at)}</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 line-clamp-1 mb-1.5">${escapeHtml(lastSnippet)}</p>
+                        <div class="flex items-center justify-between text-[10px] text-slate-500">
+                            <div class="flex items-center space-x-1">
+                                <i class="fa-solid fa-users text-slate-400 text-[9px]"></i>
+                                <div class="flex items-center -space-x-1">
+                                    ${memberBadges}
+                                </div>
+                                <span class="text-[9px] ml-1">${(s.members || []).length} members</span>
+                            </div>
+                            <span class="font-mono text-slate-400">${s.message_count} msgs</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadUserRoster() {
+            try {
+                const res = await fetch('/api/chat/roster');
+                if (!res.ok) return;
+                const data = await res.json();
+                userRoster = data.users || [];
+
+                const sel = document.getElementById('addMemberSelect');
+                if (sel) {
+                    sel.innerHTML = userRoster.map(u => `
+                        <option value="${u.id}">${escapeHtml(u.display_name)} (@${escapeHtml(u.username)}) - ${escapeHtml(u.role)}</option>
+                    `).join('');
+                }
+
+                const chkContainer = document.getElementById('newChatMembersCheckboxes');
+                if (chkContainer) {
+                    chkContainer.innerHTML = userRoster.map(u => `
+                        <label class="flex items-center space-x-2 text-slate-200 hover:text-white cursor-pointer py-0.5">
+                            <input type="checkbox" name="newChatMembers" value="${u.id}" class="rounded border-industrial-700 bg-industrial-900 text-industrial-accent focus:ring-0">
+                            <span>${escapeHtml(u.display_name)} <span class="text-slate-500 text-[10px]">(${escapeHtml(u.role)})</span></span>
+                        </label>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load user roster:', e);
+            }
+        }
+
+        function toggleChatHistoryDropdown() {
+            const dd = document.getElementById('chatHistoryDropdown');
+            if (dd) {
+                dd.classList.toggle('hidden');
+                if (!dd.classList.contains('hidden')) {
+                    loadChatSessionsList();
+                }
+            }
+        }
+
+        function closeChatHistoryDropdown() {
+            const dd = document.getElementById('chatHistoryDropdown');
+            if (dd) dd.classList.add('hidden');
+        }
+
+        function openNewChatModal() {
+            closeChatHistoryDropdown();
+            const modal = document.getElementById('newChatModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                loadUserRoster();
+
+                const modSel = document.getElementById('newChatModule');
+                if (modSel) {
+                    const approvedDocs = window.documentsList ? window.documentsList.filter(d => d.approved) : [];
+                    modSel.innerHTML = '<option value="">Auto-Detect from Approved Knowledge Base</option>' +
+                        approvedDocs.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+                }
+            }
+        }
+
+        function closeNewChatModal() {
+            const modal = document.getElementById('newChatModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function submitCreateNewChat() {
+            const machineId = document.getElementById('newChatMachineId').value.trim();
+            const machineType = document.getElementById('newChatMachineType').value.trim();
+            const problem = document.getElementById('newChatProblem').value.trim();
+            const moduleName = document.getElementById('newChatModule').value.trim();
+
+            if (!machineId && !problem) {
+                alert('Please enter at least a Machine ID or Problem summary.');
+                return;
+            }
+
+            const selectedMemberIds = [];
+            document.querySelectorAll('input[name="newChatMembers"]:checked').forEach(cb => {
+                selectedMemberIds.push(parseInt(cb.value, 10));
+            });
+
+            try {
+                const res = await fetch('/api/chat/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        machine_id: machineId || null,
+                        machine_type: machineType || null,
+                        problem: problem || null,
+                        module_name: moduleName || null,
+                        member_ids: selectedMemberIds,
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Failed to create chat');
+
+                closeNewChatModal();
+                document.getElementById('newChatMachineId').value = '';
+                document.getElementById('newChatMachineType').value = '';
+                document.getElementById('newChatProblem').value = '';
+
+                await loadChatSessionsList();
+                await switchToChatSession(data.session_id);
+                appendNotice(`Started dedicated chat for ${data.machine_id || data.name}!`);
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        async function switchToChatSession(sessionId) {
+            closeChatHistoryDropdown();
+            currentChatSessionId = sessionId;
+            lastMessageId = 0;
+            renderedMessageIds.clear();
+
+            const chatStream = document.getElementById('chatStream');
+            chatStream.innerHTML = `
+                <div class="flex items-center justify-center p-8 text-xs text-slate-400 font-mono">
+                    <i class="fa-solid fa-spinner fa-spin text-industrial-accent mr-2"></i>
+                    <span>Connecting and loading saved chat history...</span>
+                </div>
+            `;
+
+            try {
+                const res = await fetch(`/api/chat/sessions/${sessionId}`);
+                if (!res.ok) throw new Error((await res.json()).detail || 'Failed to load session');
+                const data = await res.json();
+                currentChatSessionData = data.session;
+
+                const badge = document.getElementById('activeChatMachineBadge');
+                if (badge) {
+                    badge.textContent = data.session.machine_id || (data.session.is_shared_floor ? 'SHARED FLOOR' : 'SESSION');
+                }
+                const title = document.getElementById('activeChatTitle');
+                if (title) {
+                    title.textContent = data.session.name || data.session.problem_title || 'Machine Troubleshooting Stream';
+                }
+
+                const membersDiv = document.getElementById('activeChatMembersList');
+                if (membersDiv && data.members) {
+                    membersDiv.innerHTML = data.members.map(m => `
+                        <div class="w-5 h-5 rounded-full bg-industrial-700 border border-industrial-600 text-[9px] font-bold text-slate-200 flex items-center justify-center shadow-sm" title="${escapeHtml(m.display_name)} (${escapeHtml(m.user_role || m.role || '')})">
+                            ${escapeHtml(m.display_name.charAt(0).toUpperCase())}
+                        </div>
+                    `).join('');
+                }
+
+                const mNameInput = document.getElementById('machineNameInput');
+                if (mNameInput && data.session.machine_id) mNameInput.value = data.session.machine_id;
+                const mTypeInput = document.getElementById('machineTypeInput');
+                if (mTypeInput && data.session.machine_type) mTypeInput.value = data.session.machine_type;
+                const modInput = document.getElementById('moduleNameSelect');
+                if (modInput && data.session.module_name) modInput.value = data.session.module_name;
+
+                chatStream.innerHTML = '';
+
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        renderedMessageIds.add(msg.id);
+                        if (msg.id > lastMessageId) lastMessageId = msg.id;
+
+                        if (msg.role === 'user') {
+                            appendUserMessageBubble(msg);
+                        } else if (msg.role === 'assistant') {
+                            appendAssistantMessageBubble(msg);
+                        } else if (msg.role === 'system') {
+                            appendSystemMessageBubble(msg);
+                        }
+                    });
+                } else {
+                    chatStream.innerHTML = `
+                        <div class="p-6 text-center text-xs text-slate-400 bg-industrial-800/40 border border-industrial-700/60 rounded-xl max-w-md mx-auto my-6">
+                            <i class="fa-solid fa-comments text-2xl text-industrial-accent mb-2"></i>
+                            <h4 class="font-bold text-slate-200">Session Initialized</h4>
+                            <p class="mt-1 text-slate-400">Ask a question or request an SOP to begin troubleshooting ${escapeHtml(data.session.machine_id || 'this machine')}.</p>
+                        </div>
+                    `;
+                }
+
+                chatStream.scrollTop = chatStream.scrollHeight;
+            } catch (e) {
+                chatStream.innerHTML = `<div class="p-4 text-center text-xs text-red-400">Failed to resume chat: ${escapeHtml(e.message)}</div>`;
+            }
+        }
+
+        function openAddMemberModal() {
+            const modal = document.getElementById('addMemberModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                loadUserRoster();
+            }
+        }
+
+        function closeAddMemberModal() {
+            const modal = document.getElementById('addMemberModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function submitAddMember() {
+            if (!currentChatSessionId) {
+                alert('Please select or create an active chat session first.');
+                return;
+            }
+            const sel = document.getElementById('addMemberSelect');
+            const userId = parseInt(sel.value, 10);
+            if (!userId) return;
+
+            try {
+                const res = await fetch(`/api/chat/sessions/${currentChatSessionId}/members`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Failed to add member');
+
+                closeAddMemberModal();
+                appendNotice(data.message || 'Member added successfully');
+                await pollSharedMessages();
+                await loadChatSessionsList();
+            } catch (e) {
+                alert(e.message);
             }
         }
 
     </script>
+
+    <!-- New Machine Chat Modal -->
+    <div id="newChatModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-industrial-900 border border-industrial-700 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-industrial-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-industrial-accent/20 border border-industrial-accent flex items-center justify-center text-industrial-accent">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-white">Create Machine Troubleshooting Chat</h3>
+                        <p class="text-[11px] text-slate-400">Separate thread with machine tag, saved history & team members</p>
+                    </div>
+                </div>
+                <button onclick="closeNewChatModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-300 font-medium mb-1">Machine ID / Equipment Tag <span class="text-industrial-accent">*</span></label>
+                    <input id="newChatMachineId" type="text" placeholder="e.g. RPA-990, LATHE-04, CONV-02" class="w-full bg-industrial-950 border border-industrial-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-industrial-cyan">
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-medium mb-1">Machine Type / Line Description</label>
+                    <input id="newChatMachineType" type="text" placeholder="e.g. Robotic Packaging Arm | Line 2" class="w-full bg-industrial-950 border border-industrial-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-industrial-cyan">
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-medium mb-1">Problem / Symptom Summary <span class="text-industrial-accent">*</span></label>
+                    <input id="newChatProblem" type="text" placeholder="e.g. Arm stalling mid-cycle with ERR-909 servo jitter" class="w-full bg-industrial-950 border border-industrial-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-industrial-cyan">
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-medium mb-1">Target Technical Manual / Module</label>
+                    <select id="newChatModule" class="w-full bg-industrial-950 border border-industrial-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-industrial-cyan">
+                        <option value="">Auto-Detect from Approved Knowledge Base</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-medium mb-1">Assign Team Members to Chat</label>
+                    <div id="newChatMembersCheckboxes" class="max-h-36 overflow-y-auto bg-industrial-950 border border-industrial-700 rounded-lg p-2 space-y-1.5">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end space-x-2 pt-2 border-t border-industrial-800">
+                <button onclick="closeNewChatModal()" class="px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-industrial-800">Cancel</button>
+                <button onclick="submitCreateNewChat()" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-industrial-accent hover:bg-orange-600 text-white shadow-lg transition">Create & Start Chat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Member to Existing Chat Modal -->
+    <div id="addMemberModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-industrial-900 border border-industrial-700 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-industrial-800 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-user-plus text-industrial-cyan"></i>
+                    <span>Invite Colleague to Chat</span>
+                </h3>
+                <button onclick="closeAddMemberModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="text-xs space-y-2">
+                <p class="text-slate-400">Select a plant engineer or supervisor to collaborate in this troubleshooting thread:</p>
+                <select id="addMemberSelect" class="w-full bg-industrial-950 border border-industrial-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-industrial-cyan">
+                </select>
+            </div>
+            <div class="flex items-center justify-end space-x-2 pt-2 border-t border-industrial-800">
+                <button onclick="closeAddMemberModal()" class="px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white">Cancel</button>
+                <button onclick="submitAddMember()" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-industrial-cyan text-industrial-900 hover:bg-cyan-300">Add to Chat</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

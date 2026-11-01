@@ -7,6 +7,8 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from contextlib import contextmanager
+
 from backend import main
 
 
@@ -61,9 +63,15 @@ def fake_llm(monkeypatch):
     return FakeClient
 
 
-def make_client(tmp_path, monkeypatch):
+@contextmanager
+def make_client(tmp_path, monkeypatch, login_as="admin"):
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "test.sqlite3")
-    return TestClient(main.app)
+    with TestClient(main.app) as client:
+        if login_as:
+            res = client.post("/api/auth/login", json={"username": login_as, "password": "admin"})
+            assert res.status_code == 200, f"Failed login: {res.text}"
+        yield client
+
 
 
 def test_seeded_policy_answer_quotes_approved_source(tmp_path, monkeypatch):

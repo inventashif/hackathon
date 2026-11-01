@@ -4,6 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Live Audio Chat - Gemini 3.8 Live</title>
+<script>
+async function checkAuth() {
+  try {
+    const response = await fetch("/api/auth/me");
+    if (!response.ok) {
+      window.location.href = "/";
+    }
+  } catch (e) {
+    window.location.href = "/";
+  }
+}
+checkAuth();
+</script>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }

@@ -1,6 +1,6 @@
-# NexusSOP
+# MechTech AI
 
-**Evidence-first knowledge assistant with multi-user accounts, shared chat, and SOP generation.** NexusSOP searches approved source documents, returns verbatim citations, generates source-grounded procedures with original figures, and abstains on operational or safety-critical requests. It is a hackathon demonstration, not an approved plant system.
+**Evidence-first knowledge assistant with multi-user accounts, shared chat, and SOP generation.** MechTech AI searches approved source documents, returns verbatim citations, generates source-grounded procedures with original figures, and abstains on operational or safety-critical requests. It is a hackathon demonstration, not an approved plant system.
 
 ## What Works
 
@@ -54,9 +54,12 @@ python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
 Alternatively, Windows users can double-click `run.bat`; Linux/macOS users can
-run `./run.sh`. On the host computer, open `http://127.0.0.1:8000`. To open it
-from another device on the same Wi-Fi, find the host computer's LAN IP address
-and open `http://<LAN-IP>:8000` (for example, `http://192.168.1.25:8000`).
+run `./run.sh`. On the host computer, open `http://localhost:8000` or
+`http://127.0.0.1:8000`; browsers treat localhost as a secure context for
+microphone access. Plain HTTP on a LAN IP is not a secure context and browsers
+will block the microphone. For LAN voice access, provide a trusted certificate
+and key, then set `SOP_SSL_CERTFILE` and `SOP_SSL_KEYFILE` before starting; the
+launcher will serve HTTPS and the frontend will use `wss://` automatically.
 The launcher prints the detected LAN URL when it starts.
 Interactive API documentation is available at the same address followed by
 `/docs`.
@@ -77,6 +80,8 @@ Interactive API documentation is available at the same address followed by
 | `SOP_ADMIN_PASSWORD` | Optional admin password; defaults to `admin` on first boot. |
 | `SESSION_EXPIRY_DAYS` | Session cookie expiry in days; defaults to 14. |
 | `COOKIE_SECURE` | Set to `true` for HTTPS-only cookies; defaults to `false` for local development. |
+| `SOP_SSL_CERTFILE` | Optional path to the HTTPS certificate passed to Uvicorn. |
+| `SOP_SSL_KEYFILE` | Optional path to the matching HTTPS private key passed to Uvicorn. |
 
 On first boot, if no users exist, the system creates a default admin account (`admin`/`admin`). You should change this password immediately in the Admin view or via the `SOP_ADMIN_USER` and `SOP_ADMIN_PASSWORD` environment variables.
 

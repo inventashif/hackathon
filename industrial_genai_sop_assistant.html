@@ -1680,6 +1680,12 @@
                 speechRecognition = new SpeechRecognition();
                 speechRecognition.continuous = false;
                 speechRecognition.interimResults = true;
+                speechRecognition.lang = 'en-US';
+                speechRecognition.maxAlternatives = 1;
+
+                speechRecognition.onstart = () => {
+                    document.getElementById('speechStatus').innerText = "Voice Recognition: Listening...";
+                };
 
                 speechRecognition.onresult = (event) => {
                     const transcript = Array.from(event.results)
@@ -1699,7 +1705,16 @@
                 };
 
                 speechRecognition.onerror = (event) => {
-                    document.getElementById('speechStatus').innerText = "Voice Error: " + event.error;
+                    const messages = {
+                        'not-allowed': 'Microphone blocked. Allow microphone access for this site, then reload.',
+                        'audio-capture': 'No usable microphone was found. Check the system input device.',
+                        'network': 'Speech recognition needs a network connection. Check your internet access.',
+                        'service-not-allowed': 'This browser does not allow speech recognition for this site.',
+                        'language-not-supported': 'English speech recognition is not supported by this browser.'
+                    };
+                    const message = messages[event.error] || "Voice Error: " + event.error;
+                    document.getElementById('speechStatus').innerText = message;
+                    appendNotice(message, true);
                     isVoiceActive = false;
                 };
             } else {
@@ -1717,13 +1732,23 @@
             const speechStatus = document.getElementById('speechStatus');
 
             if (!isVoiceActive || forceStart) {
+                if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                    const message = 'Microphone requires HTTPS when using a LAN address. Open localhost or configure HTTPS.';
+                    speechStatus.innerText = message;
+                    appendNotice(message, true);
+                    return;
+                }
                 try {
                     speechRecognition.start();
                     isVoiceActive = true;
                     micBtn.classList.add('text-industrial-accent', 'animate-pulse');
                     speechStatus.innerText = "Voice Recognition: Listening...";
                 } catch(e) {
-                    console.log("Speech already started");
+                    const message = e.name === 'InvalidStateError'
+                        ? 'Voice recognition is already active.'
+                        : `Could not start microphone: ${e.message || e.name}`;
+                    speechStatus.innerText = message;
+                    appendNotice(message, true);
                 }
             } else {
                 speechRecognition.stop();
@@ -1755,6 +1780,17 @@
 
         async function startLiveVoice() {
             if (liveWs) return;
+            if (!window.isSecureContext) {
+                appendNotice(
+                    'Microphone requires a secure connection. Open MechTech AI at https://localhost or http://localhost, not an HTTP LAN IP.',
+                    true
+                );
+                return;
+            }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                appendNotice('This browser does not support microphone access. Use a current Chrome, Edge, or Firefox browser.', true);
+                return;
+            }
             const ctx = ensureLivePlaybackCtx();
             try { await ctx.resume(); } catch(e) { console.error('resume err', e); }
             appendNotice('Starting live voice (Gemini)... allow microphone access.');
@@ -1771,9 +1807,12 @@
             const wsPath = cfg.ws_url || '/api/voice/ws';
             const wsUrl = `${wsProtocol}//${window.location.host}${wsPath}`;
             try {
+                const micReady = await startLiveMic();
+                if (!micReady) return;
                 liveWs = new WebSocket(wsUrl);
             } catch (e) {
                 appendNotice('WebSocket failed: ' + e.message, true);
+                stopLiveMic();
                 return;
             }
             liveWs.onopen = async () => {
@@ -1857,7 +1896,6 @@
                     }
                 };
                 liveWs.send(JSON.stringify(setup));
-                await startLiveMic();
                 appendNotice('Live voice connected. Speak now.');
             };
             liveWs.onmessage = (ev) => {
@@ -2100,11 +2138,28 @@
             return out;
         }
         async function startLiveMic() {
+            if (!window.isSecureContext) {
+                appendNotice('Microphone access requires HTTPS or localhost.', true);
+                return false;
+            }
             try {
-                liveMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                liveMicStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
             } catch (e) {
-                appendNotice('Microphone access denied.', true);
-                return;
+                const reason = {
+                    'NotAllowedError': 'Microphone permission was blocked. Click the lock icon in the address bar, allow Microphone, then reload.',
+                    'PermissionDeniedError': 'Microphone permission was blocked. Allow microphone access in browser site settings, then reload.',
+                    'NotFoundError': 'No microphone was found. Connect a microphone and try again.',
+                    'NotReadableError': 'The microphone is busy in another application.',
+                    'SecurityError': 'The browser rejected microphone access because this page is not secure.'
+                }[e.name] || `Microphone could not start (${e.name || 'unknown error'}).`;
+                appendNotice(reason, true);
+                return false;
             }
             const _track = liveMicStream.getAudioTracks()[0];
             const _settings = (_track && _track.getSettings) ? _track.getSettings() : {};
@@ -2158,6 +2213,7 @@
             };
             source.connect(liveProcessor);
             liveProcessor.connect(liveAudioCtx.destination);
+            return true;
         }
 
         function stopLiveMic() {

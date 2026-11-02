@@ -372,7 +372,30 @@ const SPEECH_FRAMES_NEEDED = 3;
 const SILENCE_FRAMES_NEEDED = 12;
 
 async function startMic() {
-  micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  if (!window.isSecureContext) {
+    throw new Error("Microphone requires HTTPS or localhost. Open this page through https:// or http://localhost.");
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error("This browser does not support microphone access.");
+  }
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+  } catch (e) {
+    const messages = {
+      NotAllowedError: "Permission was blocked. Allow microphone access in the browser address-bar settings.",
+      PermissionDeniedError: "Permission was blocked. Allow microphone access in the browser address-bar settings.",
+      NotFoundError: "No microphone was found. Connect a microphone and try again.",
+      NotReadableError: "The microphone is already being used by another application.",
+      SecurityError: "The browser rejected microphone access because this page is not secure."
+    };
+    throw new Error(messages[e.name] || `Microphone could not start (${e.name || "unknown error"}).`);
+  }
   const track = micStream.getAudioTracks()[0];
   const settings = (track && track.getSettings) ? track.getSettings() : {};
   const nativeRate = settings.sampleRate || 48000;
@@ -468,7 +491,7 @@ async function start() {
   try {
     await startMic();
   } catch (e) {
-    log("Microphone access denied: " + e.message, "error");
+    log("Microphone unavailable: " + e.message, "error");
     setOrb("err");
     // Fall back to text-only mode: still allow WebSocket connection
     log("Falling back to text-only mode.", "system");

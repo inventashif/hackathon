@@ -51,7 +51,7 @@ MAX_UPLOAD_BYTES = int(os.environ["MAX_UPLOAD_BYTES"]) if os.environ.get("MAX_UP
 MIN_RETRIEVAL_SCORE = 0.12
 MIN_EVIDENCE_COVERAGE = 0.5
 CONVERSATIONAL_REPLY = (
-    "Hello! I'm the NexusSOP evidence assistant. Ask me about document review, "
+    "Hello! I'm the MechTech AI evidence assistant. Ask me about document review, "
     "evidence policy, or the system guide, and I'll answer with cited source excerpts."
 )
 
@@ -1375,7 +1375,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="NexusSOP Evidence API",
+    title="MechTech AI Evidence API",
     version="1.0.0",
     description="Local-first, evidence-only SOP retrieval demo with review-gated ingestion.",
     lifespan=lifespan,
@@ -3166,7 +3166,7 @@ def export_chat_knowledge_pdf(
         )
 
     from backend import report_generator
-    export_path = ROOT / "data" / "exports" / f"NexusSOP_Expert_Knowledge_{session_id[:8]}.pdf"
+    export_path = ROOT / "data" / "exports" / f"MechTechAI_Expert_Knowledge_{session_id[:8]}.pdf"
     report_generator.generate_chat_knowledge_report(
         export_path,
         dict(session),

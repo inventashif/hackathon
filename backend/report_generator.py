@@ -88,7 +88,7 @@ def generate_simple_sop_report(
 
     story: list[Any] = []
     story.append(Table(
-        [[Paragraph("<b>NEXUSSOP</b>  |  CONTROLLED QUICK REFERENCE", meta_style),
+        [[Paragraph("<b>MECHTECH AI</b>  |  CONTROLLED QUICK REFERENCE", meta_style),
           Paragraph("<b>STATUS:</b> HUMAN REVIEW REQUIRED", meta_style)]],
         colWidths=[page_width - 190, 150],
         style=TableStyle([
@@ -380,7 +380,7 @@ def generate_chat_knowledge_report(
 
     story: list[Any] = [
         Table(
-            [[p("NEXUSSOP | EXPERT CHAT KNOWLEDGE RECORD", small),
+            [[p("MECHTECH AI | EXPERT CHAT KNOWLEDGE RECORD", small),
               p("HUMAN REVIEW REQUIRED", small)]],
             colWidths=[390, 125],
             style=TableStyle([

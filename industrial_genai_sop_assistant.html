@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexusSOP | Industrial Evidence Assistant</title>
+    <title>MechTech AI | Industrial Evidence Assistant</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -142,6 +142,87 @@
                 width: 3.75rem;
             }
 
+            @media (max-width: 1100px) {
+                #appHeader {
+                    align-items: flex-start;
+                    gap: 0.75rem;
+                }
+                #headerControls {
+                    width: 100%;
+                    justify-content: space-between;
+                    gap: 0.5rem;
+                    flex-wrap: wrap;
+                }
+                #headerViewSwitcher button span {
+                    display: none;
+                }
+            }
+
+            @media (max-width: 767px) {
+                #appHeader {
+                    padding: 0.65rem 0.75rem;
+                }
+                #brandSubtitle {
+                    display: none;
+                }
+                #brandTitle {
+                    font-size: 0.9rem;
+                }
+                #headerControls {
+                    align-items: center;
+                }
+                #headerViewSwitcher {
+                    order: 3;
+                    width: 100%;
+                    overflow-x: auto;
+                }
+                #headerViewSwitcher button {
+                    flex: 1 0 auto;
+                    justify-content: center;
+                }
+                #userActions {
+                    margin-left: auto;
+                    padding-left: 0;
+                    border-left: 0;
+                }
+                #assistantModeBar,
+                #chatSessionBar {
+                    align-items: stretch;
+                }
+                #assistantModeBar > *,
+                #chatSessionBar > * {
+                    max-width: 100%;
+                }
+                #modeSwitcher {
+                    width: 100%;
+                    overflow-x: auto;
+                    display: flex;
+                }
+                #modeSwitcher button {
+                    flex: 1 0 auto;
+                    white-space: nowrap;
+                }
+                #chatSessionBar {
+                    flex-direction: column;
+                }
+                #chatSessionBar > div {
+                    width: 100%;
+                    flex-wrap: wrap;
+                }
+                #chatSessionActions {
+                    justify-content: flex-start;
+                }
+                #chatStream {
+                    padding: 0.75rem;
+                }
+                .sop-card {
+                    padding: 0.75rem !important;
+                }
+                #chatInputArea {
+                    padding: 0.75rem !important;
+                }
+            }
+
             #sidebar.sidebar-collapsed .sidebar-expandable {
                 display: none;
             }
@@ -184,7 +265,7 @@
                 <div class="w-16 h-16 rounded-full bg-industrial-accent/20 border-2 border-industrial-accent flex items-center justify-center mx-auto mb-4">
                     <i class="fa-solid fa-microchip text-3xl text-industrial-accent"></i>
                 </div>
-                <h1 class="text-2xl font-bold text-white">Nexus<span class="text-industrial-accent">SOP</span></h1>
+                <h1 class="text-2xl font-bold text-white">MechTech <span class="text-industrial-accent">AI</span></h1>
                 <p class="text-slate-400 text-sm mt-1">Sign in to continue</p>
             </div>
 
@@ -258,7 +339,7 @@
     <div id="mainApp" class="hidden h-full flex flex-col">
 
     <!-- TOP NAV HEADER -->
-    <header class="bg-industrial-800 border-b border-industrial-600 px-4 py-2.5 flex flex-wrap items-center justify-between z-20 shrink-0">
+    <header id="appHeader" class="bg-industrial-800 border-b border-industrial-600 px-4 py-2.5 flex flex-wrap items-center justify-between z-20 shrink-0">
         <!-- Brand Title & Plant Node -->
         <div class="flex items-center space-x-4">
             <div class="flex items-center space-x-2">
@@ -266,17 +347,17 @@
                     <i class="fa-solid fa-microchip"></i>
                 </div>
                 <div>
-                    <h1 class="text-base font-bold tracking-wider text-white uppercase flex items-center gap-2">
-                        Nexus<span class="text-industrial-accent">SOP</span> Evidence
+                    <h1 id="brandTitle" class="text-base font-bold tracking-wider text-white uppercase flex items-center gap-2">
+                        MechTech <span class="text-industrial-accent">AI</span> Evidence
                         <span class="hidden md:inline-flex text-xs px-2 py-0.5 rounded bg-industrial-700 text-industrial-cyan font-mono border border-industrial-500">LOCAL RETRIEVAL</span>
                     </h1>
-                    <p class="text-xs text-slate-400">Source-grounded industrial knowledge assistant</p>
+                    <p id="brandSubtitle" class="text-xs text-slate-400">Source-grounded industrial knowledge assistant</p>
                 </div>
             </div>
         </div>
 
         <!-- System Telemetry & View Switcher -->
-        <div class="flex items-center space-x-4">
+        <div id="headerControls" class="flex items-center space-x-4">
             <button id="toggleSidebarBtn" onclick="toggleKnowledgeVault()" class="md:hidden bg-industrial-900 border border-industrial-700 px-2.5 py-1.5 rounded text-xs text-slate-300" aria-expanded="false" aria-controls="sidebar">
                 <i class="fa-solid fa-book-open mr-1" aria-hidden="true"></i> Documents
             </button>
@@ -296,7 +377,7 @@
             </div>
 
             <!-- View Mode Switcher Buttons -->
-            <div class="flex bg-industrial-900 p-1 rounded-lg border border-industrial-700 text-xs">
+            <div id="headerViewSwitcher" class="flex bg-industrial-900 p-1 rounded-lg border border-industrial-700 text-xs">
                 <button id="viewAssistantBtn" onclick="switchMainView('assistant')" class="px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow">
                     <i class="fa-solid fa-comments"></i>
                     <span>Assistant</span>
@@ -312,7 +393,7 @@
             </div>
 
             <!-- User Menu -->
-            <div class="flex items-center space-x-3 border-l border-industrial-700 pl-4">
+            <div id="userActions" class="flex items-center space-x-3 border-l border-industrial-700 pl-4">
                 <button onclick="openInvitePanel()" class="bg-industrial-700 hover:bg-industrial-600 text-xs px-3 py-1.5 rounded border border-industrial-600 transition">
                     <i class="fa-solid fa-user-plus mr-1"></i> Invite
                 </button>
@@ -388,10 +469,10 @@
         <main id="assistantView" class="flex-1 flex flex-col bg-industrial-900 overflow-hidden relative">
 
             <!-- Assistant Mode Banner / Quick Prompts -->
-            <div class="bg-industrial-800 border-b border-industrial-700 px-4 py-2 flex items-center justify-between text-xs shrink-0">
+            <div id="assistantModeBar" class="bg-industrial-800 border-b border-industrial-700 px-4 py-2 flex items-center justify-between text-xs shrink-0">
                 <div class="flex items-center space-x-2">
                     <span class="text-slate-400">Interaction Mode:</span>
-                    <div class="flex bg-industrial-900 rounded border border-industrial-700 p-0.5">
+                    <div id="modeSwitcher" class="flex bg-industrial-900 rounded border border-industrial-700 p-0.5">
                         <button id="modeTextBtn" onclick="setInteractionMode('text')" class="px-2.5 py-1 rounded text-industrial-cyan font-semibold bg-industrial-700">Text Chat</button>
                         <button id="modeVoiceBtn" onclick="setInteractionMode('voice')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white">Hands-Free Voice</button>
                         <button id="modeLiveBtn" onclick="setInteractionMode('live')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white">Live Voice (Gemini)</button>
@@ -422,7 +503,7 @@
             </div>
 
             <!-- Dedicated Machine Workorder / Chat Session Bar -->
-            <div class="bg-industrial-950/90 border-b border-industrial-800 px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 z-10">
+            <div id="chatSessionBar" class="bg-industrial-950/90 border-b border-industrial-800 px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 z-10">
                 <div class="flex items-center space-x-2.5">
                     <div class="flex items-center space-x-2 bg-industrial-900 border border-industrial-700 rounded-lg px-2.5 py-1 shadow-inner">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -446,7 +527,7 @@
                     </button>
                 </div>
 
-                <div class="flex items-center space-x-2">
+                <div id="chatSessionActions" class="flex items-center space-x-2">
                     <button onclick="toggleChatHistoryDropdown()" id="chatHistoryBtn" class="bg-industrial-800 hover:bg-industrial-700 text-slate-200 px-2.5 py-1 rounded-lg text-xs border border-industrial-700 flex items-center space-x-1.5 transition shadow-sm">
                         <i class="fa-solid fa-clock-rotate-left text-industrial-cyan"></i>
                         <span>Resume Chats</span>
@@ -489,7 +570,7 @@
                         </div>
                         <div class="space-y-2">
                             <div class="flex items-center space-x-2">
-                                <h3 class="font-bold text-slate-100 text-sm">NexusSOP Evidence Assistant</h3>
+                                <h3 class="font-bold text-slate-100 text-sm">MechTech AI Evidence Assistant</h3>
                                 <span id="assistantStatus" class="bg-industrial-warning/20 text-industrial-warning border border-industrial-warning/30 text-[10px] px-2 py-0.5 rounded font-mono">CONNECTING TO API</span>
                             </div>
                             <p class="text-xs text-slate-300 leading-relaxed">
@@ -1262,7 +1343,7 @@
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `NexusSOP_Expert_Knowledge_${currentChatSessionId.slice(0, 8)}.pdf`;
+                link.download = `MechTechAI_Expert_Knowledge_${currentChatSessionId.slice(0, 8)}.pdf`;
                 document.body.appendChild(link);
                 link.click();
                 link.remove();

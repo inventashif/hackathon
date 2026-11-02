@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="light-theme">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,16 +17,16 @@
             if (window.mermaid) {
                 mermaid.initialize({
                     startOnLoad: false,
-                    theme: 'dark',
+                    theme: 'base',
                     themeVariables: {
-                        darkMode: true,
-                        background: '#0B0F17',
-                        primaryColor: '#00E5FF',
-                        primaryTextColor: '#F1F5F9',
-                        primaryBorderColor: '#00E5FF',
-                        lineColor: '#FF6B00',
-                        secondaryColor: '#1E293B',
-                        tertiaryColor: '#0F172A'
+                        darkMode: false,
+                        background: '#f8fafc',
+                        primaryColor: '#d97706',
+                        primaryTextColor: '#172b4d',
+                        primaryBorderColor: '#d97706',
+                        lineColor: '#2563eb',
+                        secondaryColor: '#e0f2fe',
+                        tertiaryColor: '#f1f5f9'
                     }
                 });
             }
@@ -42,13 +42,13 @@
                 extend: {
                     colors: {
                         industrial: {
-                            900: '#0F1319',
-                            800: '#171D25',
-                            700: '#222A36',
-                            600: '#2E3848',
-                            500: '#3E4B5E',
-                            accent: '#FF6B00', // Safety Orange
-                            cyan: '#00E5FF',   // Tech Cyan
+                            900: '#f8fafc',
+                            800: '#ffffff',
+                            700: '#eef2f7',
+                            600: '#d7e0ea',
+                            500: '#9aaabd',
+                            accent: '#d97706', // Safety amber
+                            cyan: '#0369a1',   // Technical blue
                             success: '#10B981',
                             warning: '#F59E0B',
                             danger: '#EF4444'
@@ -63,20 +63,49 @@
         }
     </script>
     <style>
-        /* Custom Scrollbar for Rugged UI */
+        /* Light industrial visual system */
+        body {
+            background: #f8fafc;
+            color: #172b4d;
+        }
+        .text-slate-100, .text-slate-200, .text-slate-300 {
+            color: #243b53 !important;
+        }
+        .text-slate-400, .text-slate-500 {
+            color: #627d98 !important;
+        }
+        .text-white {
+            color: #172b4d !important;
+        }
+        .bg-industrial-accent.text-white,
+        .bg-industrial-danger.text-white,
+        button.bg-industrial-accent.text-white {
+            color: #ffffff !important;
+        }
+        input, select, textarea {
+            color-scheme: light;
+        }
+        input::placeholder, textarea::placeholder {
+            color: #829ab1;
+        }
+        .shadow-2xl, .shadow-xl {
+            box-shadow: 0 12px 30px rgba(36, 59, 83, 0.12) !important;
+        }
+
+        /* Custom Scrollbar for the light workspace */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #0F1319;
+            background: #eef2f7;
         }
         ::-webkit-scrollbar-thumb {
-            background: #2E3848;
+            background: #b8c5d3;
             border-radius: 3px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #FF6B00;
+            background: #d97706;
         }
         
         /* Audio Waveform Animation */
@@ -141,7 +170,7 @@
                 inset: 0;
                 z-index: 15;
                 display: block;
-                background: rgba(0, 0, 0, 0.62);
+                background: rgba(36, 59, 83, 0.28);
             }
         }
     </style>

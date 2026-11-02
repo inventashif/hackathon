@@ -19,7 +19,7 @@ from typing import Any, Optional
 
 import httpx
 from fpdf import FPDF
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 PART_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -282,6 +282,14 @@ class NoteRequest(BaseModel):
     body: str
 
 
+class ExpertFeedbackRequest(BaseModel):
+    detection: str = Field(min_length=2, max_length=2000)
+    solution: str = Field(min_length=2, max_length=4000)
+    outcome: str = Field(default="fixed", pattern="^(fixed|partial|not_fixed)$")
+    notes: str = Field(default="", max_length=3000)
+    error_code: str = Field(default="", max_length=120)
+
+
 def now() -> str:
     """Return current UTC timestamp in ISO format."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -330,8 +338,163 @@ def init_sop_tables(connection: sqlite3.Connection) -> None:
             FOREIGN KEY(sop_id) REFERENCES sops(id) ON DELETE CASCADE,
             FOREIGN KEY(author_id) REFERENCES users(id)
         );
+
+        CREATE TABLE IF NOT EXISTS expert_knowledge (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            room_id INTEGER NOT NULL,
+            session_id TEXT,
+            sop_id INTEGER,
+            author_id INTEGER NOT NULL,
+            machine_name TEXT,
+            error_code TEXT,
+            detection TEXT NOT NULL,
+            solution TEXT NOT NULL,
+            outcome TEXT NOT NULL CHECK(outcome IN ('fixed', 'partial', 'not_fixed')),
+            notes TEXT,
+            approved INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(room_id) REFERENCES rooms(id),
+            FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE SET NULL,
+            FOREIGN KEY(sop_id) REFERENCES sops(id) ON DELETE SET NULL,
+            FOREIGN KEY(author_id) REFERENCES users(id)
+        );
         """
     )
+
+
+def _tokens(text: str) -> set[str]:
+    return {
+        token for token in re.findall(r"[a-z0-9]+", (text or "").lower())
+        if len(token) > 2
+    }
+
+
+def find_similar_sops(
+    connection: sqlite3.Connection,
+    query: str,
+    error_code: str = "",
+    machine_name: str = "",
+    limit: int = 3,
+) -> list[dict[str, Any]]:
+    """Return prior SOPs as references, ranked by lexical problem similarity."""
+    rows = connection.execute(
+        """SELECT id, problem, answer_json, status, created_at
+           FROM sops
+           ORDER BY CASE WHEN status = 'reviewed' THEN 0 ELSE 1 END, created_at DESC
+           LIMIT 100"""
+    ).fetchall()
+    query_tokens = _tokens(" ".join([query, error_code, machine_name]))
+    ranked: list[tuple[float, dict[str, Any]]] = []
+    for row in rows:
+        answer = json.loads(row["answer_json"])
+        text = " ".join([
+            row["problem"] or "",
+            answer.get("title", ""),
+            answer.get("error_code", ""),
+            answer.get("machine_name", ""),
+            answer.get("machine", ""),
+        ])
+        candidate_tokens = _tokens(text)
+        overlap = len(query_tokens & candidate_tokens)
+        if not overlap:
+            continue
+        exact_error = bool(error_code and error_code.lower() in text.lower())
+        score = overlap / max(len(query_tokens), 1) + (0.45 if exact_error else 0)
+        ranked.append((score, {
+            "id": row["id"],
+            "title": answer.get("title") or f"SOP-{row['id']}",
+            "problem": row["problem"],
+            "status": row["status"],
+            "created_at": row["created_at"],
+            "error_code": answer.get("error_code", ""),
+            "machine": answer.get("machine_name") or answer.get("machine", ""),
+            "reference_url": f"/api/sops/{row['id']}",
+            "similarity": round(score, 3),
+        }))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    return [item[1] for item in ranked[:limit]]
+
+
+def add_expert_knowledge(
+    connection: sqlite3.Connection,
+    room_id: int,
+    session_id: str | None,
+    sop_id: int | None,
+    author_id: int,
+    machine_name: str,
+    error_code: str,
+    detection: str,
+    solution: str,
+    outcome: str,
+    notes: str,
+    approved: bool = False,
+) -> int:
+    connection.execute(
+        """INSERT INTO expert_knowledge
+           (room_id, session_id, sop_id, author_id, machine_name, error_code,
+            detection, solution, outcome, notes, approved, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            room_id, session_id, sop_id, author_id, machine_name.strip(),
+            error_code.strip(), detection.strip(), solution.strip(), outcome,
+            notes.strip(), int(approved), now(),
+        ),
+    )
+    return connection.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+def list_expert_knowledge(
+    connection: sqlite3.Connection,
+    session_id: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    where = "WHERE ek.session_id = ?" if session_id else ""
+    params: tuple[Any, ...] = (session_id,) if session_id else ()
+    rows = connection.execute(
+        f"""SELECT ek.*, u.display_name
+            FROM expert_knowledge ek
+            JOIN users u ON u.id = ek.author_id
+            {where}
+            ORDER BY ek.created_at ASC
+            LIMIT ?""",
+        (*params, limit),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def find_relevant_expert_knowledge(
+    connection: sqlite3.Connection,
+    query: str,
+    error_code: str = "",
+    machine_name: str = "",
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    """Find approved field learnings relevant to a new troubleshooting request."""
+    target = _tokens(" ".join([query, error_code, machine_name]))
+    rows = connection.execute(
+        """SELECT ek.*, u.display_name
+           FROM expert_knowledge ek
+           JOIN users u ON u.id = ek.author_id
+           WHERE ek.approved = 1
+           ORDER BY ek.created_at DESC
+           LIMIT 200"""
+    ).fetchall()
+    ranked: list[tuple[float, dict[str, Any]]] = []
+    for row in rows:
+        candidate = _tokens(" ".join([
+            row["detection"] or "", row["solution"] or "",
+            row["error_code"] or "", row["machine_name"] or "",
+        ]))
+        overlap = len(target & candidate)
+        if not overlap:
+            continue
+        score = overlap / max(len(target), 1)
+        ranked.append((score, {
+            **dict(row),
+            "similarity": round(score, 3),
+        }))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    return [item[1] for item in ranked[:limit]]
 
 
 async def build_sop_from_passages(
@@ -342,6 +505,8 @@ async def build_sop_from_passages(
     machine_type: str | None = None,
     error_code: str | None = None,
     expert_notes: str | None = None,
+    prior_references: list[dict[str, Any]] | None = None,
+    expert_learnings: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Generate an authoritative, step-by-step SOP from retrieved passages and assets.
 
@@ -430,6 +595,26 @@ async def build_sop_from_passages(
         user_prompt_lines.append(f"Active Error Code / Diagnostic Fault: {error_code}")
     if expert_notes:
         user_prompt_lines.append(f"Technician / Expert Field Notes: {expert_notes}")
+    if prior_references:
+        user_prompt_lines.append(
+            "\nPrior similar SOP references (use only as experience context; "
+            "do not copy unsupported steps or replace manual citations):\n"
+            + "\n".join(
+                f"- SOP-{ref['id']}: {ref['title']} | {ref['problem']} | "
+                f"status={ref['status']} | similarity={ref['similarity']}"
+                for ref in prior_references
+            )
+        )
+    if expert_learnings:
+        user_prompt_lines.append(
+            "\nApproved expert field learning (use as a secondary reference; "
+            "manual citations remain mandatory):\n"
+            + "\n".join(
+                f"- Detection: {entry['detection']} | Solution: {entry['solution']} | "
+                f"Outcome: {entry['outcome']} | Notes: {entry.get('notes') or 'none'}"
+                for entry in expert_learnings
+            )
+        )
 
     user_prompt_lines.append(f"\nRetrieved passages from approved manual:\n{source_context}")
     user_prompt_lines.append(f"\nAvailable extracted figures and diagrams:\n{figure_list}")
@@ -564,6 +749,8 @@ def finalize_sop_answer(
         "machine": concise(sop_data.get("machine", ""), 100),
         "source": concise(sop_data.get("source", ""), 160),
         "related_parts": sop_data.get("related_parts", [])[:12],
+        "previous_sop_references": sop_data.get("previous_sop_references", [])[:5],
+        "expert_learnings": sop_data.get("expert_learnings", [])[:5],
         "steps": steps,
         "checks": checks,
         "abstain": False,

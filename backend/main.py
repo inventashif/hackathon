@@ -1786,6 +1786,13 @@ async def execute_voice_generate_sop(
             assets = []
 
     # Build SOP using the text model
+    with connect() as ref_conn:
+        prior_references = sop.find_similar_sops(
+            ref_conn, query, error_code, cleaned_machine
+        )
+        expert_learnings = sop.find_relevant_expert_knowledge(
+            ref_conn, query, error_code, cleaned_machine
+        )
     f_map = {f"F{i}": a["id"] for i, a in enumerate(assets, start=1)}
     f_map.update({a["id"]: a["id"] for a in assets})
     sop_data = await sop.build_sop_from_passages(
@@ -1796,6 +1803,8 @@ async def execute_voice_generate_sop(
         machine_type=cleaned_machine,
         error_code=error_code,
         expert_notes=expert_notes,
+        prior_references=prior_references,
+        expert_learnings=expert_learnings,
     )
 
     citations = _build_citations(all_sop_matches)
@@ -1830,6 +1839,17 @@ async def execute_voice_generate_sop(
     sop_data["citations"] = citations
     sop_data["figures"] = assets
     sop_data["rag_strategy"] = ai_intent
+    sop_data["previous_sop_references"] = prior_references
+    sop_data["expert_learnings"] = [
+        {
+            "id": entry["id"],
+            "detection": entry["detection"],
+            "solution": entry["solution"],
+            "outcome": entry["outcome"],
+            "similarity": entry["similarity"],
+        }
+        for entry in expert_learnings
+    ]
 
     # Save to database
     valid_session_id = ensure_session(session_id, "voice")
@@ -2463,6 +2483,19 @@ async def chat(
             # Build SOP
             f_map = {f"F{i}": a["id"] for i, a in enumerate(assets, start=1)}
             f_map.update({a["id"]: a["id"] for a in assets})
+            with connect() as ref_conn:
+                prior_references = sop.find_similar_sops(
+                    ref_conn,
+                    query,
+                    request.error_code or "",
+                    request.machine_name or "",
+                )
+                expert_learnings = sop.find_relevant_expert_knowledge(
+                    ref_conn,
+                    query,
+                    request.error_code or "",
+                    request.machine_name or "",
+                )
             sop_data = await sop.build_sop_from_passages(
                 query,
                 all_sop_matches,
@@ -2471,6 +2504,8 @@ async def chat(
                 machine_type=request.machine_type,
                 error_code=request.error_code,
                 expert_notes=request.expert_notes,
+                prior_references=prior_references,
+                expert_learnings=expert_learnings,
             )
 
             valid_citation_ids = {c["reference_id"] for c in citations}
@@ -2511,6 +2546,17 @@ async def chat(
                 sop_data["module_name"] = all_sop_matches[0].get("document_name", "")
             sop_data["rag_strategy"] = ai_intent
             sop_data["citations"] = citations
+            sop_data["previous_sop_references"] = prior_references
+            sop_data["expert_learnings"] = [
+                {
+                    "id": entry["id"],
+                    "detection": entry["detection"],
+                    "solution": entry["solution"],
+                    "outcome": entry["outcome"],
+                    "similarity": entry["similarity"],
+                }
+                for entry in expert_learnings
+            ]
 
             if not sop_data.get("abstain"):
                 with connect() as conn:
@@ -2585,6 +2631,7 @@ async def chat(
                     "error_code": sop_data.get("error_code"),
                     "module_name": sop_data.get("module_name"),
                     "rag_strategy": ai_intent,
+                    "previous_sop_references": sop_data.get("previous_sop_references", []),
                 }
 
                 rendered_steps = "\n".join(
@@ -3078,6 +3125,58 @@ def get_chat_session(
     }
 
 
+@app.get("/api/chat/sessions/{session_id}/knowledge-export")
+def export_chat_knowledge_pdf(
+    session_id: str,
+    user: auth.User = Depends(require_auth),
+) -> FileResponse:
+    """Export a structured problem, detection, expert solution, and SOP reference PDF."""
+    with connect() as connection:
+        session = connection.execute(
+            """SELECT id, machine_id, error_code, problem_title, name
+               FROM sessions WHERE id = ?""",
+            (session_id,),
+        ).fetchone()
+        if not session:
+            raise HTTPException(404, "Chat session not found")
+        room_id = connection.execute(
+            "SELECT room_id FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()["room_id"]
+        if room_id is None:
+            room_id = connection.execute("SELECT id FROM rooms ORDER BY id ASC LIMIT 1").fetchone()["id"]
+        if not auth.is_user_in_room(connection, user.id, room_id):
+            raise HTTPException(403, "You must be a room member")
+
+        messages = [
+            dict(row) for row in connection.execute(
+                """SELECT sm.role, sm.content, sm.created_at, u.display_name
+                   FROM session_messages sm
+                   LEFT JOIN users u ON u.id = sm.user_id
+                   WHERE sm.session_id = ?
+                   ORDER BY sm.id""",
+                (session_id,),
+            ).fetchall()
+        ]
+        expert_entries = sop.list_expert_knowledge(connection, session_id=session_id)
+        references = sop.find_similar_sops(
+            connection,
+            session["problem_title"] or "",
+            session["error_code"] or "",
+            session["machine_id"] or "",
+        )
+
+    from backend import report_generator
+    export_path = ROOT / "data" / "exports" / f"NexusSOP_Expert_Knowledge_{session_id[:8]}.pdf"
+    report_generator.generate_chat_knowledge_report(
+        export_path,
+        dict(session),
+        messages,
+        expert_entries,
+        references,
+    )
+    return FileResponse(export_path, media_type="application/pdf", filename=export_path.name)
+
+
 @app.post("/api/chat/sessions/{session_id}/members")
 def add_chat_member(
     session_id: str,
@@ -3329,7 +3428,10 @@ def add_sop_feedback(
 ) -> dict[str, str]:
     """Add feedback to an SOP."""
     with connect() as connection:
-        sop_row = connection.execute("SELECT room_id, session_id FROM sops WHERE id = ?", (sop_id,)).fetchone()
+        sop_row = connection.execute(
+            "SELECT room_id, session_id, problem, answer_json FROM sops WHERE id = ?",
+            (sop_id,),
+        ).fetchone()
         if not sop_row:
             raise HTTPException(404, "SOP not found")
 
@@ -3339,11 +3441,94 @@ def add_sop_feedback(
         sop.add_feedback(
             connection, sop_id, user.id, request.applied_how, request.outcome, request.notes
         )
+        answer_data = json.loads(sop_row["answer_json"])
+        if request.applied_how.strip() or request.notes.strip():
+            sop.add_expert_knowledge(
+                connection,
+                room_id=sop_row["room_id"],
+                session_id=sop_row["session_id"],
+                sop_id=sop_id,
+                author_id=user.id,
+                machine_name=answer_data.get("machine_name") or answer_data.get("machine", ""),
+                error_code=answer_data.get("error_code", ""),
+                detection=answer_data.get("problem") or sop_row["problem"],
+                solution=request.applied_how,
+                outcome=request.outcome,
+                notes=request.notes,
+                approved=request.outcome == "fixed",
+            )
         outcome_label = request.outcome.replace("_", " ")
         sys_msg = f"{user.display_name} marked this {outcome_label}"
         log_session_message(sop_row["session_id"], "system", sys_msg, "text", user_id=user.id, sop_id=sop_id, connection=connection)
 
     return {"message": "Feedback added"}
+
+
+@app.post("/api/chat/sessions/{session_id}/expert-feedback", status_code=201)
+def add_expert_chat_feedback(
+    session_id: str,
+    request: sop.ExpertFeedbackRequest,
+    user: auth.User = Depends(require_auth),
+) -> dict[str, Any]:
+    """Capture a technician's detection and solution as reusable expert knowledge."""
+    with connect() as connection:
+        session = connection.execute(
+            "SELECT id, room_id, machine_id, error_code FROM sessions WHERE id = ?",
+            (session_id,),
+        ).fetchone()
+        if not session:
+            raise HTTPException(404, "Chat session not found")
+        room_id = session["room_id"]
+        if room_id is None:
+            room = connection.execute("SELECT id FROM rooms ORDER BY id ASC LIMIT 1").fetchone()
+            room_id = room["id"] if room else 1
+        if not auth.is_user_in_room(connection, user.id, room_id):
+            raise HTTPException(403, "You must be a room member")
+
+        knowledge_id = sop.add_expert_knowledge(
+            connection,
+            room_id=room_id,
+            session_id=session_id,
+            sop_id=None,
+            author_id=user.id,
+            machine_name=session["machine_id"] or "",
+            error_code=request.error_code or session["error_code"] or "",
+            detection=request.detection,
+            solution=request.solution,
+            outcome=request.outcome,
+            notes=request.notes,
+            approved=request.outcome == "fixed",
+        )
+        log_session_message(
+            session_id,
+            "system",
+            f"{user.display_name} added expert solution learning ({request.outcome}).",
+            "text",
+            user_id=user.id,
+            connection=connection,
+        )
+    return {"message": "Expert solution learning recorded", "knowledge_id": knowledge_id}
+
+
+@app.get("/api/chat/sessions/{session_id}/expert-feedback")
+def get_expert_chat_feedback(
+    session_id: str,
+    user: auth.User = Depends(require_auth),
+) -> dict[str, Any]:
+    with connect() as connection:
+        session = connection.execute(
+            "SELECT room_id FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+        if not session:
+            raise HTTPException(404, "Chat session not found")
+        room_id = session["room_id"]
+        if room_id is None:
+            room = connection.execute("SELECT id FROM rooms ORDER BY id ASC LIMIT 1").fetchone()
+            room_id = room["id"] if room else 1
+        if not auth.is_user_in_room(connection, user.id, room_id):
+            raise HTTPException(403, "You must be a room member")
+        entries = sop.list_expert_knowledge(connection, session_id=session_id)
+    return {"knowledge": entries}
 
 
 @app.post("/api/sops/{sop_id}/notes")

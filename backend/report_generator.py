@@ -347,6 +347,135 @@ def generate_simple_sop_report(
     doc.build(story)
     return output_path
 
+
+def generate_chat_knowledge_report(
+    output_path: Path,
+    session: dict[str, Any],
+    messages: list[dict[str, Any]],
+    expert_knowledge: list[dict[str, Any]],
+    referenced_sops: list[dict[str, Any]],
+) -> Path:
+    """Create a white-background, structured knowledge handoff from a chat."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    styles = getSampleStyleSheet()
+    title = ParagraphStyle(
+        "KnowledgeTitle", parent=styles["Heading1"], fontName="Helvetica-Bold",
+        fontSize=17, leading=21, textColor="#17324d",
+    )
+    section = ParagraphStyle(
+        "KnowledgeSection", parent=styles["Heading2"], fontName="Helvetica-Bold",
+        fontSize=11, leading=14, textColor="#17324d", spaceBefore=9, spaceAfter=5,
+    )
+    body = ParagraphStyle(
+        "KnowledgeBody", parent=styles["BodyText"], fontName="Helvetica",
+        fontSize=8.5, leading=11, textColor="#243b53",
+    )
+    small = ParagraphStyle(
+        "KnowledgeSmall", parent=styles["BodyText"], fontName="Helvetica",
+        fontSize=7.5, leading=9, textColor="#526579",
+    )
+
+    def p(value: Any, style: ParagraphStyle = body) -> Paragraph:
+        return Paragraph(_safe_text(value), style)
+
+    story: list[Any] = [
+        Table(
+            [[p("NEXUSSOP | EXPERT CHAT KNOWLEDGE RECORD", small),
+              p("HUMAN REVIEW REQUIRED", small)]],
+            colWidths=[390, 125],
+            style=TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), "#eaf2f8"),
+                ("BOX", (0, 0), (-1, -1), 0.8, "#9fb3c8"),
+                ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+                ("PADDING", (0, 0), (-1, -1), 7),
+            ]),
+        ),
+        Spacer(1, 8),
+        p("Expert Troubleshooting Knowledge Capture", title),
+        p(
+            f"Machine: {session.get('machine_id') or 'Not specified'}    "
+            f"Error code: {session.get('error_code') or 'Not specified'}    "
+            f"Problem: {session.get('problem_title') or 'Not specified'}",
+            small,
+        ),
+        Spacer(1, 7),
+    ]
+
+    story.append(p("1. DETECTION / PROBLEM REPORTED", section))
+    detection_rows = [[p("<b>Source</b>", small), p("<b>Observation</b>", small)]]
+    for msg in messages:
+        if msg.get("role") in {"user", "system"} and msg.get("content"):
+            detection_rows.append([p(msg.get("display_name") or msg.get("role"), small), p(msg["content"])])
+    if len(detection_rows) == 1:
+        detection_rows.append([p("Chat", small), p("No detection details recorded.")])
+    story.append(Table(
+        detection_rows, colWidths=[105, 410], repeatRows=1,
+        style=TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, "#9fb3c8"),
+            ("BACKGROUND", (0, 0), (-1, 0), "#d9eaf7"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]),
+    ))
+
+    story.append(p("2. EXPERT SOLUTION LEARNING", section))
+    learning_rows = [[
+        p("<b>Detection</b>", small), p("<b>Solution suggested</b>", small),
+        p("<b>Outcome</b>", small), p("<b>Notes</b>", small),
+    ]]
+    for entry in expert_knowledge:
+        learning_rows.append([
+            p(entry.get("detection")),
+            p(entry.get("solution")),
+            p(str(entry.get("outcome", "")).upper()),
+            p(entry.get("notes") or "—"),
+        ])
+    if len(learning_rows) == 1:
+        learning_rows.append([p("No expert entry recorded."), p("—"), p("—"), p("—")])
+    story.append(Table(
+        learning_rows, colWidths=[125, 165, 70, 155], repeatRows=1,
+        style=TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, "#9fb3c8"),
+            ("BACKGROUND", (0, 0), (-1, 0), "#d9eaf7"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]),
+    ))
+
+    story.append(p("3. SIMILAR SOP REFERENCES", section))
+    ref_rows = [[p("<b>Reference</b>", small), p("<b>Problem</b>", small),
+                 p("<b>Status</b>", small), p("<b>Similarity</b>", small)]]
+    for ref in referenced_sops:
+        ref_rows.append([
+            p(f"SOP-{ref.get('id')}: {ref.get('title')}"),
+            p(ref.get("problem")),
+            p(ref.get("status")),
+            p(ref.get("similarity")),
+        ])
+    if len(ref_rows) == 1:
+        ref_rows.append([p("No similar SOP found."), p("—"), p("—"), p("—")])
+    story.append(Table(
+        ref_rows, colWidths=[165, 210, 80, 60], repeatRows=1,
+        style=TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, "#9fb3c8"),
+            ("BACKGROUND", (0, 0), (-1, 0), "#d9eaf7"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]),
+    ))
+
+    story.append(Spacer(1, 10))
+    story.append(p(
+        "This record preserves field experience for future retrieval. It is not a certified "
+        "maintenance instruction; verify every solution against the approved manual and site safety procedure.",
+        small,
+    ))
+    SimpleDocTemplate(
+        str(output_path), pagesize=A4, rightMargin=40, leftMargin=40,
+        topMargin=36, bottomMargin=36,
+    ).build(story)
+    return output_path
+
 from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet

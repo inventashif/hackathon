@@ -175,6 +175,41 @@ def test_error_code_sop_attaches_named_part_visuals(tmp_path):
     assert 42 in result["steps"][0]["figure_ids"]
 
 
+def test_expert_chat_learning_and_knowledge_pdf_export(tmp_path, monkeypatch):
+    """Expert chat entries are stored and exported as a structured PDF."""
+    with make_test_env(tmp_path, monkeypatch, login_as="admin") as client:
+        created = client.post(
+            "/api/chat/sessions",
+            json={
+                "machine_id": "CNC-8055",
+                "error_code": "E-204",
+                "problem": "Servo feedback fault",
+            },
+        )
+        assert created.status_code == 201
+        session_id = created.json()["session_id"]
+
+        learned = client.post(
+            f"/api/chat/sessions/{session_id}/expert-feedback",
+            json={
+                "detection": "Encoder feedback drops during axis movement",
+                "solution": "Reseat the feedback cable and inspect the encoder connector",
+                "outcome": "fixed",
+                "notes": "Fault cleared after connector reseat.",
+            },
+        )
+        assert learned.status_code == 201
+
+        entries = client.get(f"/api/chat/sessions/{session_id}/expert-feedback")
+        assert entries.status_code == 200
+        assert entries.json()["knowledge"][0]["outcome"] == "fixed"
+
+        exported = client.get(f"/api/chat/sessions/{session_id}/knowledge-export")
+        assert exported.status_code == 200
+        assert exported.headers["content-type"].startswith("application/pdf")
+        assert exported.content.startswith(b"%PDF")
+
+
 def test_disabled_user_login(tmp_path, monkeypatch):
     """Disabled user login returns 403. Admin cannot disable self or last admin."""
     with make_test_env(tmp_path, monkeypatch, login_as="admin") as admin_client:

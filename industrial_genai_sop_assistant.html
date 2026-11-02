@@ -392,6 +392,10 @@
                         <i class="fa-solid fa-user-plus text-industrial-cyan text-[10px]"></i>
                         <span class="hidden md:inline">Add Member</span>
                     </button>
+                    <button onclick="captureExpertLearning()" class="text-[11px] bg-purple-900/30 hover:bg-purple-900/60 text-purple-200 px-2 py-1 rounded border border-purple-500/40 flex items-center space-x-1 transition shadow-sm" title="Save expert detection and solution learning">
+                        <i class="fa-solid fa-lightbulb text-purple-300 text-[10px]"></i>
+                        <span class="hidden md:inline">Expert Learning</span>
+                    </button>
                 </div>
 
                 <div class="flex items-center space-x-2">
@@ -406,6 +410,9 @@
                         <i class="fa-solid fa-plus"></i>
                         <span>New Machine Chat</span>
                     </button>
+                    <a id="exportKnowledgeBtn" href="#" target="_blank" class="bg-white hover:bg-slate-200 text-black font-semibold px-2.5 py-1 rounded-lg text-xs flex items-center space-x-1.5 shadow" title="Export this chat as structured expert knowledge PDF">
+                        <i class="fa-solid fa-file-pdf"></i><span class="hidden md:inline">Knowledge PDF</span>
+                    </a>
                 </div>
             </div>
 
@@ -2719,6 +2726,20 @@
                     `;
                 }
 
+                const priorSopSection = (sop.previous_sop_references || []).length ? `
+                    <div class="bg-purple-950/20 border border-purple-500/30 rounded-lg p-2.5 text-[11px]">
+                        <div class="font-mono uppercase tracking-wide text-purple-300 font-semibold mb-1">
+                            <i class="fa-solid fa-link mr-1"></i>Similar Previous SOP References
+                        </div>
+                        ${(sop.previous_sop_references || []).map(ref => `
+                            <a href="${escapeHtml(ref.reference_url || `/api/sops/${ref.id}`)}" target="_blank" class="block text-slate-200 hover:text-white py-0.5">
+                                SOP-${escapeHtml(ref.id)} — ${escapeHtml(ref.title || 'Previous SOP')}
+                                <span class="text-slate-500">(${escapeHtml(ref.status || 'draft')}, similarity ${escapeHtml(ref.similarity)})</span>
+                            </a>
+                        `).join('')}
+                    </div>
+                ` : '';
+
                 container.innerHTML = `
                     <div class="sop-card bg-industrial-800 border border-industrial-600 rounded-xl p-4 shadow-xl space-y-4">
                         <!-- Header -->
@@ -2756,6 +2777,7 @@
                         </div>
 
                         ${machineContextBanner}
+                        ${priorSopSection}
                         ${relatedPartsSection}
 
                         <!-- Problem Statement -->
@@ -3696,6 +3718,20 @@
             const errorCode = document.getElementById('newChatErrorCode').value.trim();
             const moduleName = document.getElementById('newChatModule').value.trim();
             const imageFile = document.getElementById('newChatErrorImage').files[0];
+            let errorImage = null;
+
+            if (imageFile) {
+                if (imageFile.size > 5 * 1024 * 1024) {
+                    alert('Error image must be smaller than 5 MB.');
+                    return;
+                }
+                errorImage = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Could not read the error image.'));
+                    reader.readAsDataURL(imageFile);
+                });
+            }
 
             if (!machineId && !problem) {
                 alert('Please enter at least a Machine ID or Problem summary.');
@@ -3737,6 +3773,40 @@
             }
         }
 
+        async function captureExpertLearning() {
+            if (!currentChatSessionId) {
+                alert('Please select a machine troubleshooting chat first.');
+                return;
+            }
+            const detection = prompt('What detection or problem was observed?');
+            if (!detection || !detection.trim()) return;
+            const solution = prompt('What solution was suggested or applied?');
+            if (!solution || !solution.trim()) return;
+            const outcome = prompt('Outcome: fixed, partial, or not_fixed', 'fixed') || 'fixed';
+            const notes = prompt('Optional expert notes or verification details:', '') || '';
+            if (!['fixed', 'partial', 'not_fixed'].includes(outcome)) {
+                alert('Outcome must be fixed, partial, or not_fixed.');
+                return;
+            }
+            try {
+                const res = await fetch(`/api/chat/sessions/${currentChatSessionId}/expert-feedback`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        detection: detection.trim(),
+                        solution: solution.trim(),
+                        outcome,
+                        notes: notes.trim()
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Could not save expert learning');
+                appendNotice('Expert solution learning recorded for future similar SOPs.');
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
         async function switchToChatSession(sessionId) {
             closeChatHistoryDropdown();
             currentChatSessionId = sessionId;
@@ -3756,6 +3826,10 @@
                 if (!res.ok) throw new Error((await res.json()).detail || 'Failed to load session');
                 const data = await res.json();
                 currentChatSessionData = data.session;
+                const knowledgeBtn = document.getElementById('exportKnowledgeBtn');
+                if (knowledgeBtn) {
+                    knowledgeBtn.href = `/api/chat/sessions/${sessionId}/knowledge-export`;
+                }
 
                 const badge = document.getElementById('activeChatMachineBadge');
                 if (badge) {

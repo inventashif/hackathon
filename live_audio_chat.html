@@ -94,6 +94,29 @@ checkAuth();
     0% { transform: scale(0.8); opacity: 0.7; }
     100% { transform: scale(1.6); opacity: 0; }
   }
+
+  /* SOP Card Styles */
+  .sop-card {
+    background: #131a2e; border: 1px solid #3b82f6; border-radius: 16px;
+    padding: 24px; margin-top: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.4);
+  }
+  .sop-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid #263056; padding-bottom: 14px; }
+  .sop-title { font-size: 18px; font-weight: 700; color: #60a5fa; margin: 0 0 6px; }
+  .sop-badge { background: #1e3a8a; color: #93c5fd; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; border: 1px solid #3b82f6; display: inline-block; }
+  .sop-summary { font-size: 13px; color: #cbd5e1; line-height: 1.5; margin-bottom: 16px; background: #0a0f1e; padding: 12px; border-radius: 8px; border-left: 3px solid #3b82f6; }
+  .sop-step { background: #0e1529; border: 1px solid #263056; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .sop-step-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .sop-step-num { width: 24px; height: 24px; border-radius: 50%; background: #3b6cff; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .sop-step-text { font-size: 14px; color: #e2e8f0; line-height: 1.5; font-weight: 500; }
+  .sop-caution { background: #3b1616; border: 1px solid #ef4444; color: #fca5a5; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+  .sop-tool { background: #1e293b; color: #94a3b8; font-size: 11px; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-right: 6px; margin-top: 4px; }
+  .sop-citation { background: #1c2340; color: #38bdf8; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-family: monospace; display: inline-block; margin-right: 4px; }
+  .sop-checks { margin-top: 16px; background: #0a0f1e; padding: 12px; border-radius: 8px; border: 1px solid #263056; }
+  .sop-checks h4 { margin: 0 0 8px; font-size: 13px; color: #34d399; }
+  .sop-check-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+  .sop-actions { display: flex; gap: 12px; margin-top: 16px; }
+  .btn-pdf { background: #10b981; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-pdf:hover { background: #059669; }
 </style>
 </head>
 <body>
@@ -134,6 +157,8 @@ checkAuth();
       Microphone access required. Works in Chrome/Edge.
     </div>
   </div>
+
+  <div id="sopDisplayContainer" style="display:none; width: 100%; max-width: 720px;"></div>
 
 <script>
 // ===== Configuration =====
@@ -492,24 +517,44 @@ async function start() {
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: "You are a friendly, concise voice assistant. For questions about uploaded "
-              + "documents, the knowledge vault, policies, evidence, or source details, use "
-              + "search_knowledge_base before answering. The backend executes it against "
-              + "approved extracted document text."
+            text: "You are an expert industrial voice assistant pairing with technicians on the shop floor. "
+              + "For questions about uploaded manuals, policies, or knowledge vault, use search_knowledge_base. "
+              + "STANDARD OPERATING PROCEDURE (SOP) GENERATION: "
+              + "When the operator asks to generate an SOP or step-by-step procedure: "
+              + "1. Verify whether the operator provided BOTH: (a) machine or equipment name, and (b) specific procedure, task, or fault symptom. "
+              + "2. If ANY of these details are missing, DO NOT call generate_sop yet. Explicitly ask the operator for the missing machine name or specific procedure details. "
+              + "3. Once both details are provided, call the generate_sop tool. The backend will trigger the text model to analyze manuals and synthesize the official SOP. "
+              + "4. When generate_sop returns the result, concisely explain the procedure aloud: state the SOP title, total steps, and crucial safety cautions."
           }]
         },
         tools: [{
-          functionDeclarations: [{
-            name: "search_knowledge_base",
-            description: "Search approved uploaded documents and extracted OCR/text. Use for every knowledge-vault question.",
-            parameters: {
-              type: "OBJECT",
-              properties: {
-                query: { type: "STRING", description: "The user's document or knowledge question." }
-              },
-              required: ["query"]
+          functionDeclarations: [
+            {
+              name: "search_knowledge_base",
+              description: "Search approved uploaded documents and extracted OCR/text. Use for every knowledge-vault question.",
+              parameters: {
+                type: "OBJECT",
+                properties: {
+                  query: { type: "STRING", description: "The user's document or knowledge question." }
+                },
+                required: ["query"]
+              }
+            },
+            {
+              name: "generate_sop",
+              description: "Generate an official, step-by-step SOP by analyzing approved manuals using the engineering text model. Call ONLY when machine_name and procedure_name are clearly provided by the user.",
+              parameters: {
+                type: "OBJECT",
+                properties: {
+                  machine_name: { type: "STRING", description: "Name or model of the machine/equipment (e.g. 'Haas CNC Lathe', 'Conveyor Belt C-102'). Required." },
+                  procedure_name: { type: "STRING", description: "Specific procedure or task to perform (e.g. 'Belt tensioning and alignment', 'Spindle bearing replacement'). Required." },
+                  error_code: { type: "STRING", description: "Optional error code or fault symptom." },
+                  expert_notes: { type: "STRING", description: "Optional operator notes or shop constraints." }
+                },
+                required: ["machine_name", "procedure_name"]
+              }
             }
-          }]
+          ]
         }]
       }
     };
@@ -544,6 +589,26 @@ async function start() {
         log("Session ready. Speak or type a message.", "system");
         setOrb(micStream ? "listening" : "working");
         return;
+      }
+      if (msg.nexusToolResult) {
+        for (const res of msg.nexusToolResult) {
+          if (res.status === "missing_details") {
+            log("System: " + res.message, "system");
+          } else if (res.sop_data) {
+            log("Assistant: Generated SOP - " + res.title + " (" + res.total_steps + " steps)", "assistant");
+            renderSopCard(res.sop_data);
+          } else if (res.answer) {
+            log("Knowledge: " + res.answer, "system");
+          }
+        }
+        return;
+      }
+      if (msg.toolCall) {
+        for (const call of (msg.toolCall.functionCalls || [])) {
+          if (call.name === "generate_sop") {
+            log("System: Analyzing manual with text model for " + (call.args?.procedure_name || "SOP") + "...", "system");
+          }
+        }
       }
       if (msg.serverContent) {
         const sc = msg.serverContent;
@@ -657,6 +722,73 @@ window.addEventListener("beforeunload", stop);
 
 // build meter
 updateMeter(0);
+
+function escapeHtml(str) {
+  if (!str) return "";
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function renderSopCard(sop) {
+  const container = $("sopDisplayContainer");
+  if (!container || !sop) return;
+
+  const stepsHtml = (sop.steps || []).map((step, idx) => {
+    const num = step.number || (idx + 1);
+    const cautionHtml = step.caution ? `<div class="sop-caution"><i class="fa-solid fa-triangle-exclamation"></i> <strong>CAUTION:</strong> ${escapeHtml(step.caution)}</div>` : "";
+    const toolsHtml = (step.tools || []).map(t => `<span class="sop-tool"><i class="fa-solid fa-wrench"></i> ${escapeHtml(t)}</span>`).join("");
+    const citationsHtml = (step.citation_ids || []).map(c => `<span class="sop-citation">[${escapeHtml(c)}]</span>`).join("");
+    return `
+      <div class="sop-step">
+        <div class="sop-step-top">
+          <div class="sop-step-num">${num}</div>
+          <div class="sop-step-text">${escapeHtml(step.instruction || step.step || "")}</div>
+        </div>
+        ${toolsHtml ? `<div style="margin-left: 34px;">${toolsHtml}</div>` : ""}
+        ${citationsHtml ? `<div style="margin-left: 34px; margin-top: 4px;">${citationsHtml}</div>` : ""}
+        ${cautionHtml ? `<div style="margin-left: 34px;">${cautionHtml}</div>` : ""}
+      </div>
+    `;
+  }).join("");
+
+  const checksHtml = (sop.checks || []).map(check => {
+    const checkText = typeof check === "string" ? check : (check.text || check.description || "");
+    return `<div class="sop-check-item"><input type="checkbox"> <span>${escapeHtml(checkText)}</span></div>`;
+  }).join("");
+
+  const pdfUrl = sop.id ? `/api/sops/${sop.id}/export` : "#";
+
+  container.innerHTML = `
+    <div class="sop-card">
+      <div class="sop-header">
+        <div>
+          <div class="sop-title">${escapeHtml(sop.title || "Standard Operating Procedure")}</div>
+          <span class="sop-badge"><i class="fa-solid fa-industry"></i> ${escapeHtml(sop.machine_name || "Industrial Equipment")}</span>
+          <span class="sop-badge" style="background:#064e3b; color:#6ee7b7; border-color:#10b981; margin-left:6px;"><i class="fa-solid fa-circle-check"></i> Text Model Verified</span>
+        </div>
+        ${sop.id ? `<a href="${pdfUrl}" target="_blank" class="btn-pdf"><i class="fa-solid fa-file-pdf"></i> Download PDF</a>` : ""}
+      </div>
+      ${sop.summary ? `<div class="sop-summary"><strong>Summary:</strong> ${escapeHtml(sop.summary)}</div>` : ""}
+      <div class="sop-steps">
+        <h4 style="margin: 0 0 10px; font-size: 14px; color: #93c5fd;">Sequential Procedure:</h4>
+        ${stepsHtml}
+      </div>
+      ${checksHtml ? `
+        <div class="sop-checks">
+          <h4><i class="fa-solid fa-list-check"></i> Post-Procedure Verification:</h4>
+          ${checksHtml}
+        </div>
+      ` : ""}
+      <div class="sop-actions">
+        ${sop.id ? `<a href="${pdfUrl}" target="_blank" class="btn-pdf"><i class="fa-solid fa-download"></i> Export Official SOP Report</a>` : ""}
+        <button onclick="window.location.href='/'" class="btn secondary" style="font-size:13px; padding:10px 14px;">Open Main Assistant</button>
+      </div>
+    </div>
+  `;
+  container.style.display = "block";
+  container.scrollIntoView({ behavior: "smooth" });
+}
 
 setOrb("idle");
 log("Ready. Click 'Start Live Chat' and allow microphone.", "system");

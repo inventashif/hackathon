@@ -10,6 +10,7 @@ from docx import Document
 from fastapi.testclient import TestClient
 
 from backend import main
+from backend import sop
 
 
 class FakeResponse:
@@ -134,6 +135,44 @@ def test_auth_login_logout_and_me(tmp_path, monkeypatch):
         # /api/auth/me is 401 again
         me_after = client.get("/api/auth/me")
         assert me_after.status_code == 401
+
+
+def test_error_code_sop_attaches_named_part_visuals(tmp_path):
+    """Error-code SOPs expose source-backed part images in overview and steps."""
+    asset_path = tmp_path / "servo-drive.png"
+    asset_path.write_bytes(b"source-figure")
+    data = {
+        "error_code": "E-204",
+        "problem": "Servo drive feedback fault",
+        "steps": [
+            {
+                "number": 1,
+                "instruction": "Inspect the servo drive and feedback cable.",
+                "citation_ids": ["S1"],
+                "figure_ids": [],
+                "caution": "",
+            }
+        ],
+    }
+    assets = [{
+        "id": 42,
+        "page_number": 12,
+        "kind": "page",
+        "file_path": str(asset_path),
+        "caption": "Servo drive and feedback cable diagram",
+    }]
+    result = sop.attach_part_visuals(
+        data,
+        assets,
+        passages=[{"passage": "[[page:12]] Servo drive feedback cable fault."}],
+        query="Servo drive feedback fault",
+        error_code="E-204",
+    )
+    assert result["related_parts"][0]["part_name"] == "Servo drive"
+    assert result["related_parts"][0]["part_image"] == "/api/assets/42"
+    assert result["steps"][0]["part_name"] == "Servo drive"
+    assert result["steps"][0]["part_image"] == "/api/assets/42"
+    assert 42 in result["steps"][0]["figure_ids"]
 
 
 def test_disabled_user_login(tmp_path, monkeypatch):
@@ -578,6 +617,17 @@ def test_generate_sop_with_operational_context_and_dark_pdf_export(tmp_path, mon
         page4_text = pdf_doc[3].get_text()
         assert "Optical encoder re-calibrated" in page4_text
 
+        quick_exp = client.get(f"/api/sops/{sop_id}/quick-export")
+        assert quick_exp.status_code == 200
+        assert quick_exp.headers["content-type"] == "application/pdf"
+        quick_pdf = fitz.open(stream=quick_exp.content, filetype="pdf")
+        assert quick_pdf.page_count >= 1
+        quick_text = "\n".join(page.get_text() for page in quick_pdf)
+        assert "PROCEDURE AT A GLANCE" in quick_text
+        assert "DECISION ALGORITHM" in quick_text
+        assert "EVIDENCE COVERAGE" in quick_text
+        assert "SOURCE PAGE" in quick_text or "p." in quick_text
+
 
 def test_ai_decides_rag_targets_by_understanding_problem_not_literal_words(tmp_path, monkeypatch):
     """AI understands the underlying equipment problem and failure mode to decide RAG search targets, rather than relying solely on literal words."""
@@ -759,3 +809,125 @@ def test_separate_chat_creation_history_resumption_and_member_collaboration(tmp_
         assert "Primary source reference manual" in last_text or "GROUND TRUTH" in last_text
 
 
+def test_voice_sop_generation_asks_for_missing_details_when_not_provided(tmp_path, monkeypatch):
+    """Voice live model SOP flow checks for required details and asks the user when info is missing."""
+    monkeypatch.setattr(main, "LLM_API_KEY", "")
+    with make_test_env(tmp_path, monkeypatch, login_as="admin") as client:
+        # 1. Neither machine nor procedure given
+        res_empty = client.post("/api/voice/generate-sop", json={"machine_name": "", "procedure_name": ""})
+        assert res_empty.status_code == 200
+        data_empty = res_empty.json()
+        assert data_empty["status"] == "missing_details"
+        assert "machine/equipment name" in data_empty["missing_fields"]
+        assert "specific maintenance procedure or symptom" in data_empty["missing_fields"]
+        assert "Please specify" in data_empty["message"]
+
+        # 2. Only machine name given, procedure missing
+        res_no_proc = client.post("/api/voice/generate-sop", json={"machine_name": "Haas CNC Lathe", "procedure_name": ""})
+        assert res_no_proc.status_code == 200
+        data_no_proc = res_no_proc.json()
+        assert data_no_proc["status"] == "missing_details"
+        assert "specific maintenance procedure or symptom" in data_no_proc["missing_fields"]
+        assert "machine/equipment name" not in data_no_proc["missing_fields"]
+
+        # 3. Only procedure given, machine missing
+        res_no_mach = client.post("/api/voice/generate-sop", json={"machine_name": "", "procedure_name": "Spindle bearing replacement"})
+        assert res_no_mach.status_code == 200
+        data_no_mach = res_no_mach.json()
+        assert data_no_mach["status"] == "missing_details"
+        assert "machine/equipment name" in data_no_mach["missing_fields"]
+        assert "specific maintenance procedure or symptom" not in data_no_mach["missing_fields"]
+
+
+def test_voice_sop_generation_with_complete_details_generates_sop_via_text_model(tmp_path, monkeypatch):
+    """Voice live model SOP flow delegates to the text model once details are provided, returning structured steps and spoken summary."""
+    monkeypatch.setattr(main, "LLM_API_KEY", "")
+    with make_test_env(tmp_path, monkeypatch, login_as="admin") as client:
+        # Seed approved manual
+        manual = (
+            "# Conveyor Belt C-102 Maintenance Manual\n"
+            "Conveyor belt tensioning procedure: check belt tracking and alignment. "
+            "Inspect drive rollers for wear and isolate motor disconnect switch before tightening tension bolts to 45 Nm."
+        )
+        up = client.post(
+            "/api/documents",
+            files={"file": ("conveyor_manual.pdf", manual.encode("utf-8"), "application/pdf")},
+        )
+        assert up.status_code == 201
+        doc_id = up.json()["id"]
+        client.post(f"/api/documents/{doc_id}/approve")
+
+        # Call voice generate-sop endpoint with complete details
+        gen_res = client.post(
+            "/api/voice/generate-sop",
+            json={
+                "machine_name": "Conveyor Belt C-102",
+                "procedure_name": "belt tensioning and alignment",
+                "error_code": "ERR-BELT-01",
+                "expert_notes": "Line 2 primary feed conveyor",
+            },
+        )
+        assert gen_res.status_code == 200
+        data = gen_res.json()
+        assert data["status"] == "success"
+        assert data["sop_id"] > 0
+        assert data["total_steps"] >= 1
+        assert len(data["steps"]) >= 1
+
+        # Check step details
+        step1 = data["steps"][0]
+        assert "instruction" in step1 or "step" in step1
+        assert len(step1.get("citation_ids", [])) > 0 or len(data.get("checks", [])) > 0
+
+        # Spoken summary for voice live model to announce
+        assert "I have analyzed the manual" in data["message"]
+        assert "step-by-step SOP card and PDF export are now ready" in data["message"]
+
+        # Verify PDF export URL is functional
+        pdf_res = client.get(data["pdf_export_url"])
+        assert pdf_res.status_code == 200
+        assert pdf_res.content.startswith(b"%PDF")
+
+
+def test_handle_live_tool_call_for_voice_sop_and_missing_details(tmp_path, monkeypatch):
+    """handle_live_tool_call properly executes generate_sop and validates missing details."""
+    import asyncio
+    monkeypatch.setattr(main, "LLM_API_KEY", "")
+    with make_test_env(tmp_path, monkeypatch, login_as="admin") as client:
+        # 1. Test missing details tool call
+        tool_call_missing = {
+            "functionCalls": [{
+                "name": "generate_sop",
+                "id": "call_1",
+                "args": {"machine_name": "", "procedure_name": ""}
+            }]
+        }
+        res_missing = asyncio.run(main.handle_live_tool_call(None, tool_call_missing))
+        assert len(res_missing) == 1
+        assert res_missing[0]["status"] == "missing_details"
+        assert "machine/equipment name" in res_missing[0]["missing_fields"]
+
+        # 2. Upload manual and test successful tool call
+        manual = "# Lathe Headstock Lubrication\nLathe lubrication procedure: fill oil reservoir to sight glass line with ISO VG 68 spindle oil."
+        client.post(
+            "/api/documents",
+            files={"file": ("lathe_manual.pdf", manual.encode("utf-8"), "application/pdf")},
+        )
+        with main.connect() as conn:
+            conn.execute("UPDATE documents SET approved = 1")
+
+        tool_call_valid = {
+            "functionCalls": [{
+                "name": "generate_sop",
+                "id": "call_2",
+                "args": {
+                    "machine_name": "Lathe",
+                    "procedure_name": "Headstock lubrication procedure"
+                }
+            }]
+        }
+        res_valid = asyncio.run(main.handle_live_tool_call(None, tool_call_valid))
+        assert len(res_valid) == 1
+        assert res_valid[0]["status"] == "success"
+        assert res_valid[0]["total_steps"] >= 1
+        assert "sop_data" in res_valid[0]

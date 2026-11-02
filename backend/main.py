@@ -188,15 +188,16 @@ KB_LOOKUP_QUESTION = re.compile(
 # Explicit requests for step-by-step work.
 INSTRUCTION_REQUEST = re.compile(
     r"\b(how\s+(?:do|can|would|should)\s+(?:i|we|you)|how\s+to|"
-    r"steps?\s+(?:to|for|of|do)|procedure\s+(?:to|for|of)|"
+    r"steps?\s+(?:to|for|of|do|by\s+step|wise)|procedure\s+(?:to|for|of)|"
     r"give\s+me|show\s+me|walk\s+me|teach\s+me|instructions?\s+(?:for|to|on)|"
-    r"what(?:'s|\s+is)\s+the\s+(?:procedure|process|steps))\b",
+    r"what(?:'s|\s+is)\s+the\s+(?:procedure|process|steps?|solution|fix)|"
+    r"solution\s+(?:for|to|in)|step\s*(?:by\s*step|wise)|summariz\w*|analys\w*|analyz\w*)\b",
     re.IGNORECASE,
 )
 
 # Words that turn a lookup question into a request for procedures.
 PROCEDURE_REQUEST = re.compile(
-    r"\b(steps?|procedure|instructions?|process|work\s*sheet|task\s*list)\b",
+    r"\b(steps?|procedure|instructions?|process|work\s*sheet|task\s*list|solutions?|sop\w*|guide|workflow|walkthrough|action\s*plan|troubleshoot\w*|remediation|fix\w*)\b",
     re.IGNORECASE,
 )
 
@@ -301,6 +302,14 @@ class VoiceKnowledgeRequest(BaseModel):
     query: str = Field(min_length=2, max_length=2000)
 
 
+class VoiceGenerateSopRequest(BaseModel):
+    machine_name: str = ""
+    procedure_name: str = ""
+    error_code: str = ""
+    expert_notes: str = ""
+    session_id: str = ""
+
+
 class SessionRequest(BaseModel):
     kind: str = Field(default="text", pattern="^(text|voice)$")
 
@@ -322,7 +331,8 @@ class ChatRequest(BaseModel):
 class CreateChatSessionRequest(BaseModel):
     name: str | None = None
     machine_id: str | None = None
-    machine_type: str | None = None
+    error_code: str | None = None
+    error_image: str | None = None
     problem: str | None = None
     module_name: str | None = None
     member_ids: list[int] | None = None
@@ -440,6 +450,10 @@ def init_db() -> None:
             connection.execute("ALTER TABLE sessions ADD COLUMN machine_id TEXT")
         if "machine_type" not in session_columns:
             connection.execute("ALTER TABLE sessions ADD COLUMN machine_type TEXT")
+        if "error_code" not in session_columns:
+            connection.execute("ALTER TABLE sessions ADD COLUMN error_code TEXT")
+        if "error_image" not in session_columns:
+            connection.execute("ALTER TABLE sessions ADD COLUMN error_image TEXT")
         if "problem_title" not in session_columns:
             connection.execute("ALTER TABLE sessions ADD COLUMN problem_title TEXT")
         if "name" not in session_columns:
@@ -902,7 +916,9 @@ def set_app_setting(key: str, value: str) -> None:
 def get_active_model_config() -> dict[str, Any]:
     """Return the active AI model engine configuration and available models."""
     db_provider = get_app_setting("llm_provider", "")
-    if db_provider in ("gemini", "nvidia"):
+    if is_mock_test_active():
+        active_provider = "nvidia"
+    elif db_provider in ("gemini", "nvidia"):
         active_provider = db_provider
     elif LLM_PROVIDER in ("gemini", "nvidia"):
         active_provider = LLM_PROVIDER
@@ -1668,30 +1684,244 @@ def build_voice_knowledge(query: str) -> dict[str, Any]:
     }
 
 
-async def handle_live_tool_call(upstream: Any, tool_call: dict[str, Any]) -> list[dict[str, Any]]:
+async def execute_voice_generate_sop(
+    machine_name: str,
+    procedure_name: str,
+    error_code: str = "",
+    expert_notes: str = "",
+    session_id: str = "",
+) -> dict[str, Any]:
+    """Analyze approved industrial manuals with the text model and generate a step-by-step SOP.
+
+    If machine_name or procedure_name are missing or placeholder strings, returns status 'missing_details'
+    so the conversational voice agent can ask the operator for the missing parameters.
+    """
+    cleaned_machine = machine_name.strip()
+    cleaned_procedure = procedure_name.strip()
+
+    generic_placeholders = {"unknown", "n/a", "none", "machine", "equipment", "procedure", "sop", "task", "something", ""}
+    missing: list[str] = []
+    if not cleaned_machine or cleaned_machine.lower() in generic_placeholders:
+        missing.append("machine/equipment name")
+    if not cleaned_procedure or cleaned_procedure.lower() in generic_placeholders:
+        missing.append("specific maintenance procedure or symptom")
+
+    if missing:
+        prompt_question = (
+            f"Please specify the {' and '.join(missing)} so I can search the manual and generate the SOP."
+            if len(missing) == 2
+            else f"Please specify the {missing[0]} for this SOP."
+        )
+        return {
+            "status": "missing_details",
+            "missing_fields": missing,
+            "message": f"Required details missing: {', '.join(missing)}. {prompt_question}",
+        }
+
+    # Formulate engineering query
+    query = f"{cleaned_machine} {cleaned_procedure}"
+    if error_code.strip():
+        query += f" error {error_code.strip()}"
+
+    with connect() as conn:
+        rows = conn.execute("SELECT * FROM documents WHERE approved = 1").fetchall()
+
+    if not rows:
+        return {
+            "status": "no_manual_found",
+            "message": "There are no approved manuals in the knowledge vault to generate this SOP.",
+        }
+
+    # Use AI problem understanding to plan RAG retrieval targets
+    ai_intent = await ai_understand_problem_for_rag(
+        query,
+        machine_name=cleaned_machine,
+        machine_type=cleaned_machine,
+        error_code=error_code,
+        expert_notes=expert_notes,
+    )
+    all_sop_matches = retrieve(query, rows, limit=12, ai_intent=ai_intent)
+    if not all_sop_matches:
+        all_sop_matches = retrieve(query, rows, limit=12)
+
+    if not all_sop_matches:
+        return {
+            "status": "no_manual_found",
+            "message": f"No relevant manual passages found matching {cleaned_machine} and {cleaned_procedure}.",
+        }
+
+    # Retrieve figure assets
+    passage_page_numbers = set()
+    used_doc_ids = set()
+    for match in all_sop_matches:
+        used_doc_ids.add(match["document_id"])
+        for line in match["passage"].splitlines():
+            if "[[page:" in line:
+                try:
+                    p = int(line.split("[[page:")[1].split("]]")[0])
+                    passage_page_numbers.add(p)
+                except (ValueError, IndexError):
+                    pass
+
+    query_clauses = []
+    params = []
+    if passage_page_numbers:
+        placeholders = ",".join("?" * len(passage_page_numbers))
+        query_clauses.append(f"page_number IN ({placeholders})")
+        params.extend(list(passage_page_numbers))
+    if used_doc_ids:
+        doc_placeholders = ",".join("?" * len(used_doc_ids))
+        query_clauses.append(f"(document_id IN ({doc_placeholders}) AND kind = 'upload')")
+        params.extend(list(used_doc_ids))
+
+    with connect() as conn:
+        if query_clauses:
+            where_clause = " OR ".join(query_clauses)
+            asset_rows = conn.execute(
+                f"SELECT id, document_id, page_number, kind, file_path, caption FROM document_assets WHERE {where_clause}",
+                params,
+            ).fetchall()
+            assets = [dict(a) for a in asset_rows]
+        else:
+            assets = []
+
+    # Build SOP using the text model
+    f_map = {f"F{i}": a["id"] for i, a in enumerate(assets, start=1)}
+    f_map.update({a["id"]: a["id"] for a in assets})
+    sop_data = await sop.build_sop_from_passages(
+        query,
+        all_sop_matches,
+        assets,
+        machine_name=cleaned_machine,
+        machine_type=cleaned_machine,
+        error_code=error_code,
+        expert_notes=expert_notes,
+    )
+
+    citations = _build_citations(all_sop_matches)
+    valid_citation_ids = {c["reference_id"] for c in citations}
+    valid_figure_ids = {a["id"] for a in assets}
+    sop_data = sop.finalize_sop_answer(sop_data, valid_citation_ids, valid_figure_ids, f_map=f_map)
+
+    # Fallback to smart extractive extraction if needed
+    if sop_data.get("abstain") and all_sop_matches:
+        sop_data = sop.extract_steps_from_passages(query, all_sop_matches, assets)
+        sop_data = sop.finalize_sop_answer(sop_data, valid_citation_ids, valid_figure_ids, f_map=f_map)
+
+    sop_data = sop.attach_part_visuals(
+        sop_data,
+        assets,
+        passages=all_sop_matches,
+        query=query,
+        error_code=error_code,
+    )
+
+    sop_data["machine_name"] = cleaned_machine
+    sop_data["procedure_name"] = cleaned_procedure
+    if error_code:
+        sop_data["error_code"] = error_code
+        sop_data["machine"] = sop_data.get("machine") or machine_name or "Fagor CNC 8055"
+        sop_data["source"] = sop_data.get("source") or (
+            all_sop_matches[0].get("document_name", "Approved machine manual")
+            if all_sop_matches else "Approved machine manual"
+        )
+    if expert_notes:
+        sop_data["expert_notes"] = expert_notes
+    sop_data["citations"] = citations
+    sop_data["figures"] = assets
+    sop_data["rag_strategy"] = ai_intent
+
+    # Save to database
+    valid_session_id = ensure_session(session_id, "voice")
+    with connect() as conn:
+        admin_row = conn.execute("SELECT id FROM users WHERE role = 'admin' LIMIT 1").fetchone()
+        author_id = admin_row["id"] if admin_row else 1
+
+        room_row = conn.execute("SELECT id FROM rooms ORDER BY id ASC LIMIT 1").fetchone()
+        room_id = room_row["id"] if room_row else 1
+
+        conn.execute(
+            "INSERT INTO session_messages (session_id, role, content, modality, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (valid_session_id, "assistant", f"Generated SOP for {query}", "voice", author_id, now()),
+        )
+        msg_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+        sop_id = sop.create_sop(
+            conn,
+            room_id,
+            valid_session_id,
+            msg_id,
+            author_id,
+            query,
+            sop_data,
+        )
+
+        conn.execute("UPDATE session_messages SET sop_id = ? WHERE id = ?", (sop_id, msg_id))
+    sop_data["id"] = sop_id
+
+    steps_count = len(sop_data.get("steps", []))
+    cautions = [s["caution"] for s in sop_data.get("steps", []) if s.get("caution")]
+    caution_summary = f" Crucial safety warning: {cautions[0]}." if cautions else ""
+    spoken_summary = (
+        f"I have analyzed the manual using the engineering text model and generated a {steps_count}-step SOP "
+        f"for {sop_data.get('title', cleaned_procedure)}.{caution_summary} "
+        f"The complete step-by-step SOP card and PDF export are now ready on your screen."
+    )
+
+    return {
+        "status": "success",
+        "sop_id": sop_id,
+        "title": sop_data.get("title", f"SOP: {cleaned_procedure}"),
+        "summary": sop_data.get("summary", ""),
+        "total_steps": steps_count,
+        "steps": sop_data.get("steps", []),
+        "cautions": cautions,
+        "checks": sop_data.get("checks", []),
+        "pdf_export_url": f"/api/sops/{sop_id}/export",
+        "sop_data": sop_data,
+        "message": spoken_summary,
+    }
+
+
+async def handle_live_tool_call(upstream: Any, tool_call: dict[str, Any], session_id: str = "") -> list[dict[str, Any]]:
     """Execute supported Live tools on the server and answer Gemini directly."""
     function_responses = []
     display_results = []
     for call in tool_call.get("functionCalls", []):
-        if call.get("name") != "search_knowledge_base":
-            function_responses.append({
-                "name": call.get("name", ""),
-                "id": call.get("id", ""),
-                "response": {"result": "Unknown tool."},
-            })
-            continue
-        query = str(call.get("args", {}).get("query", "")).strip()
-        if not query:
-            result = {"error": "A non-empty query is required."}
+        name = call.get("name", "")
+        call_id = call.get("id", "")
+        args = call.get("args", {})
+
+        if name == "search_knowledge_base":
+            query = str(args.get("query", "")).strip()
+            if not query:
+                result = {"error": "A non-empty query is required."}
+            else:
+                result = await asyncio.to_thread(build_voice_knowledge, query)
+        elif name == "generate_sop":
+            machine_name = str(args.get("machine_name", "")).strip()
+            procedure_name = str(args.get("procedure_name", "")).strip()
+            error_code = str(args.get("error_code", "")).strip()
+            expert_notes = str(args.get("expert_notes", "")).strip()
+            result = await execute_voice_generate_sop(
+                machine_name=machine_name,
+                procedure_name=procedure_name,
+                error_code=error_code,
+                expert_notes=expert_notes,
+                session_id=session_id,
+            )
         else:
-            result = await asyncio.to_thread(build_voice_knowledge, query)
+            result = {"error": f"Unknown tool: {name}"}
+
         display_results.append(result)
         function_responses.append({
-            "name": call["name"],
-            "id": call["id"],
+            "name": name,
+            "id": call_id,
             "response": {"result": json.dumps(result, ensure_ascii=True)},
         })
-    await upstream.send(json.dumps({"toolResponse": {"functionResponses": function_responses}}))
+
+    if upstream and hasattr(upstream, "send"):
+        await upstream.send(json.dumps({"toolResponse": {"functionResponses": function_responses}}))
     return display_results
 
 
@@ -1768,7 +1998,7 @@ async def voice_websocket(websocket: WebSocket) -> None:
                         await websocket.send_text(message)
                         continue
                     if payload.get("toolCall"):
-                        results = await handle_live_tool_call(upstream, payload["toolCall"])
+                        results = await handle_live_tool_call(upstream, payload["toolCall"], session_id=session_id)
                         for result in results:
                             log_session_message(
                                 session_id,
@@ -1840,6 +2070,18 @@ def voice_knowledge(request: VoiceKnowledgeRequest) -> dict[str, Any]:
         for source in result.pop("extracted_sources")
     ]
     return result
+
+
+@app.post("/api/voice/generate-sop")
+async def api_voice_generate_sop(request: VoiceGenerateSopRequest) -> dict[str, Any]:
+    """Execute SOP generation from voice live model flow using the text model."""
+    return await execute_voice_generate_sop(
+        machine_name=request.machine_name,
+        procedure_name=request.procedure_name,
+        error_code=request.error_code,
+        expert_notes=request.expert_notes,
+        session_id=request.session_id,
+    )
 
 
 @app.post("/api/documents", status_code=201)
@@ -2086,6 +2328,8 @@ async def chat(
                     request.machine_name = sess_row["machine_id"]
                 if not request.machine_type and sess_row["machine_type"]:
                     request.machine_type = sess_row["machine_type"]
+                if not request.error_code and sess_row["error_code"]:
+                    request.error_code = sess_row["error_code"]
                 if not request.module_name and sess_row["module_name"]:
                     request.module_name = sess_row["module_name"]
 
@@ -2219,7 +2463,15 @@ async def chat(
             # Build SOP
             f_map = {f"F{i}": a["id"] for i, a in enumerate(assets, start=1)}
             f_map.update({a["id"]: a["id"] for a in assets})
-            sop_data = await sop.build_sop_from_passages(query, all_sop_matches, assets)
+            sop_data = await sop.build_sop_from_passages(
+                query,
+                all_sop_matches,
+                assets,
+                machine_name=request.machine_name,
+                machine_type=request.machine_type,
+                error_code=request.error_code,
+                expert_notes=request.expert_notes,
+            )
 
             valid_citation_ids = {c["reference_id"] for c in citations}
             valid_figure_ids = {a["id"] for a in assets}
@@ -2228,25 +2480,16 @@ async def chat(
             # If user explicitly requested Generate SOP and LLM or citation gate abstained,
             # construct an evidence-grounded procedure directly from the retrieved passages
             if sop_data.get("abstain") and request.generate_sop and all_sop_matches:
-                fallback_steps = []
-                for idx, match in enumerate(all_sop_matches[:6], start=1):
-                    cleaned_p = re.sub(r'\[\[page:\d+\]\]', '', match["passage"]).strip()
-                    first_sent = cleaned_p.split('\n')[0].strip() or cleaned_p[:120]
-                    ref_id = citations[idx - 1]["reference_id"] if idx <= len(citations) else f"S{idx}"
-                    fallback_steps.append({
-                        "number": idx,
-                        "instruction": first_sent,
-                        "citation_ids": [ref_id],
-                        "figure_ids": [],
-                        "caution": "Verify electrical isolation and mechanical lockout prior to servicing." if idx == 1 else ""
-                    })
-                sop_data = {
-                    "title": f"Standard Operating Procedure: {query[:60]}",
-                    "problem": query,
-                    "steps": fallback_steps,
-                    "checks": [{"text": "Verify operational tolerances, sensor feedback, and guard integrity.", "citation_ids": [citations[0]["reference_id"] if citations else "S1"]}],
-                    "abstain": False,
-                }
+                sop_data = sop.extract_steps_from_passages(query, all_sop_matches, assets)
+                sop_data = sop.finalize_sop_answer(sop_data, valid_citation_ids, valid_figure_ids, f_map=f_map)
+
+            sop_data = sop.attach_part_visuals(
+                sop_data,
+                assets,
+                passages=all_sop_matches,
+                query=query,
+                error_code=request.error_code,
+            )
 
             # Store user provided operational context for report generation
             if request.machine_name:
@@ -2255,6 +2498,11 @@ async def chat(
                 sop_data["machine_type"] = request.machine_type
             if request.error_code:
                 sop_data["error_code"] = request.error_code
+                sop_data["machine"] = sop_data.get("machine") or request.machine_name or "Fagor CNC 8055"
+                sop_data["source"] = sop_data.get("source") or (
+                    all_sop_matches[0].get("document_name", "Approved machine manual")
+                    if all_sop_matches else "Approved machine manual"
+                )
             if request.expert_notes:
                 sop_data["expert_notes"] = request.expert_notes
             if request.module_name:
@@ -2302,7 +2550,24 @@ async def chat(
                     "title": sop_data["title"],
                     "problem": sop_data["problem"],
                     "steps": sop_data["steps"],
+                    "solution_steps": sop_data["steps"],
                     "checks": sop_data["checks"],
+                    "category": sop_data.get("category", ""),
+                    "symptoms": sop_data.get("symptoms", []),
+                    "possible_causes": sop_data.get("possible_causes", []),
+                    "severity": sop_data.get("severity", ""),
+                    "machine": sop_data.get("machine") or sop_data.get("machine_name"),
+                    "source": sop_data.get("source") or sop_data.get("module_name"),
+                    "related_parts": [
+                        {
+                            **part,
+                            "part_image": part.get("part_image") or (
+                                f"/api/assets/{part['part_asset_id']}"
+                                if part.get("part_asset_id") else ""
+                            ),
+                        }
+                        for part in sop_data.get("related_parts", [])
+                    ],
                     "figures": [
                         {
                             "id": a["id"],
@@ -2560,15 +2825,16 @@ def create_chat_session(
     with connect() as conn:
         conn.execute(
             """INSERT INTO sessions (id, kind, room_id, created_by, created_at, updated_at,
-                                     machine_id, machine_type, problem_title, name, module_name, status)
-               VALUES (?, 'text', NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'active')""",
+                                     machine_id, error_code, error_image, problem_title, name, module_name, status)
+               VALUES (?, 'text', NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')""",
             (
                 session_id,
                 user.id,
                 created_ts,
                 created_ts,
                 request.machine_id,
-                request.machine_type,
+                request.error_code,
+                request.error_image,
                 request.problem,
                 name,
                 request.module_name,
@@ -2592,7 +2858,9 @@ def create_chat_session(
                         )
                         invited_names.append(u_row["display_name"])
 
-        sys_details = [f"Machine: {request.machine_id or 'General Plant'}" + (f" ({request.machine_type})" if request.machine_type else "")]
+        sys_details = [f"Machine: {request.machine_id or 'General Plant'}"]
+        if request.error_code:
+            sys_details.append(f"Error code: {request.error_code}")
         if request.problem:
             sys_details.append(f"Problem: {request.problem}")
         if request.module_name:
@@ -2619,7 +2887,8 @@ def create_chat_session(
         "session_id": session_id,
         "name": name,
         "machine_id": request.machine_id,
-        "machine_type": request.machine_type,
+        "error_code": request.error_code,
+        "error_image": request.error_image,
         "problem_title": request.problem,
         "module_name": request.module_name,
         "created_at": created_ts,
@@ -2634,7 +2903,7 @@ def list_chat_sessions(user: auth.User = Depends(require_auth)) -> dict[str, Any
     with connect() as conn:
         if user.role == "admin":
             query = """
-                SELECT DISTINCT s.id, s.name, s.machine_id, s.machine_type, s.problem_title,
+                SELECT DISTINCT s.id, s.name, s.machine_id, s.error_code, s.error_image, s.problem_title,
                                 s.module_name, s.status, s.created_at, s.updated_at, s.room_id,
                                 s.created_by, u.display_name as creator_name
                 FROM sessions s
@@ -2645,7 +2914,7 @@ def list_chat_sessions(user: auth.User = Depends(require_auth)) -> dict[str, Any
             rows = conn.execute(query).fetchall()
         else:
             query = """
-                SELECT DISTINCT s.id, s.name, s.machine_id, s.machine_type, s.problem_title,
+                SELECT DISTINCT s.id, s.name, s.machine_id, s.error_code, s.error_image, s.problem_title,
                                 s.module_name, s.status, s.created_at, s.updated_at, s.room_id,
                                 s.created_by, u.display_name as creator_name
                 FROM sessions s
@@ -2692,7 +2961,8 @@ def list_chat_sessions(user: auth.User = Depends(require_auth)) -> dict[str, Any
                 "id": sid,
                 "name": display_name,
                 "machine_id": r["machine_id"],
-                "machine_type": r["machine_type"],
+                "error_code": r["error_code"],
+                "error_image": r["error_image"],
                 "problem_title": r["problem_title"],
                 "module_name": r["module_name"],
                 "status": r["status"] or "active",
@@ -2794,7 +3064,8 @@ def get_chat_session(
             "id": session["id"],
             "name": name,
             "machine_id": session["machine_id"],
-            "machine_type": session["machine_type"],
+            "error_code": session["error_code"],
+            "error_image": session["error_image"],
             "problem_title": session["problem_title"],
             "module_name": session["module_name"],
             "status": session["status"] or "active",
@@ -2995,6 +3266,12 @@ def get_sop(sop_id: int, user: auth.User = Depends(require_auth)) -> dict[str, A
 
         # Collect figures
         step_fig_ids = [fid for step in answer_json.get("steps", []) for fid in step.get("figure_ids", [])]
+        part_fig_ids = [
+            part.get("part_asset_id")
+            for part in answer_json.get("related_parts", [])
+            if part.get("part_asset_id") is not None
+        ]
+        step_fig_ids = list(dict.fromkeys(step_fig_ids + part_fig_ids))
         figures = []
         if step_fig_ids:
             placeholders = ",".join("?" * len(step_fig_ids))
@@ -3019,7 +3296,15 @@ def get_sop(sop_id: int, user: auth.User = Depends(require_auth)) -> dict[str, A
         "title": answer_json.get("title", ""),
         "problem": answer_json.get("problem", ""),
         "steps": answer_json.get("steps", []),
+        "solution_steps": answer_json.get("solution_steps", answer_json.get("steps", [])),
         "checks": answer_json.get("checks", []),
+        "category": answer_json.get("category", ""),
+        "symptoms": answer_json.get("symptoms", []),
+        "possible_causes": answer_json.get("possible_causes", []),
+        "severity": answer_json.get("severity", ""),
+        "machine": answer_json.get("machine") or answer_json.get("machine_name"),
+        "source": answer_json.get("source") or answer_json.get("module_name"),
+        "related_parts": answer_json.get("related_parts", []),
         "status": sop_row["status"],
         "author": sop_row["author_name"],
         "created_at": sop_row["created_at"],
@@ -3122,6 +3407,25 @@ def export_sop_pdf(
 
         export_path = sop.generate_sop_pdf(connection, sop_id, ROOT / "data" / "exports")
 
+    return FileResponse(export_path, media_type="application/pdf", filename=export_path.name)
+
+
+@app.get("/api/sops/{sop_id}/quick-export")
+@app.post("/api/sops/{sop_id}/quick-export")
+def export_quick_sop_pdf(
+    sop_id: int,
+    user: auth.User = Depends(require_auth),
+) -> FileResponse:
+    """Export a concise black-and-white, source-page-referenced SOP."""
+    with connect() as connection:
+        sop_row = connection.execute("SELECT room_id FROM sops WHERE id = ?", (sop_id,)).fetchone()
+        if not sop_row:
+            raise HTTPException(404, "SOP not found")
+        if not auth.is_user_in_room(connection, user.id, sop_row["room_id"]):
+            raise HTTPException(403, "You must be a room member")
+        export_path = sop.generate_sop_pdf(
+            connection, sop_id, ROOT / "data" / "exports", compact=True
+        )
     return FileResponse(export_path, media_type="application/pdf", filename=export_path.name)
 
 

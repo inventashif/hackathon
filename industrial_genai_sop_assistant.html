@@ -1187,6 +1187,20 @@
             const status = document.getElementById('backendStatus');
             const assistantStatus = document.getElementById('assistantStatus');
             const footer = document.getElementById('backendFooter');
+            let errorImage = null;
+            if (imageFile) {
+                if (imageFile.size > 5 * 1024 * 1024) {
+                    alert('Error image must be 5 MB or smaller.');
+                    return;
+                }
+                errorImage = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(imageFile);
+                });
+            }
+
             try {
                 await fetch('/api/health').then(response => {
                     if (!response.ok) throw new Error('API unavailable');
@@ -1611,24 +1625,57 @@
                                     + 'against approved extracted document text and returns the approved '
                                     + 'document catalog and grounded excerpts. Do not claim to see a document '
                                     + 'unless it appears in the tool result. Give concise spoken answers and '
-                                    + 'mention the document names used.'
+                                    + 'mention the document names used. '
+                                    + 'When the user requests to generate an SOP (Standard Operating Procedure): '
+                                    + '1. Verify whether the user provided BOTH the machine/equipment name and the specific procedure/task. '
+                                    + '2. If ANY detail is missing, DO NOT call generate_sop yet. Instead, ask the operator for the missing machine name or specific procedure. '
+                                    + '3. When both details are provided, call the generate_sop tool to trigger the text model. '
+                                    + '4. When the SOP is generated, verbally summarize the key steps and safety cautions.'
                             }]
                         },
                         tools: [{
-                            functionDeclarations: [{
-                                name: 'search_knowledge_base',
-                                description: 'MUST be used for every question about uploaded documents, document names, the knowledge vault, policies, evidence, or source details. Returns the approved document catalog and grounded excerpts. Never answer those questions from memory.',
-                                parameters: {
-                                    type: 'OBJECT',
-                                    properties: {
-                                        query: {
-                                            type: 'STRING',
-                                            description: 'The user question to search for in approved documents.'
-                                        }
-                                    },
-                                    required: ['query']
+                            functionDeclarations: [
+                                {
+                                    name: 'search_knowledge_base',
+                                    description: 'MUST be used for every question about uploaded documents, document names, the knowledge vault, policies, evidence, or source details. Returns the approved document catalog and grounded excerpts. Never answer those questions from memory.',
+                                    parameters: {
+                                        type: 'OBJECT',
+                                        properties: {
+                                            query: {
+                                                type: 'STRING',
+                                                description: 'The user question to search for in approved documents.'
+                                            }
+                                        },
+                                        required: ['query']
+                                    }
+                                },
+                                {
+                                    name: 'generate_sop',
+                                    description: 'Generate a step-by-step Standard Operating Procedure using the engineering text model. Call ONLY when machine_name and procedure_name are clearly provided by the user.',
+                                    parameters: {
+                                        type: 'OBJECT',
+                                        properties: {
+                                            machine_name: {
+                                                type: 'STRING',
+                                                description: 'Name or model of the machine/equipment.'
+                                            },
+                                            procedure_name: {
+                                                type: 'STRING',
+                                                description: 'Specific maintenance procedure, task, or fault to resolve.'
+                                            },
+                                            error_code: {
+                                                type: 'STRING',
+                                                description: 'Optional error code or alarm.'
+                                            },
+                                            expert_notes: {
+                                                type: 'STRING',
+                                                description: 'Optional technician observations or constraints.'
+                                            }
+                                        },
+                                        required: ['machine_name', 'procedure_name']
+                                    }
                                 }
-                            }]
+                            ]
                         }]
                     }
                 };
@@ -1653,6 +1700,27 @@
                         }
                         if (msg.nexusToolResult) {
                             const result = msg.nexusToolResult[0] || {};
+                            if (result.status === 'missing_details') {
+                                appendNotice('Voice SOP Notice: ' + result.message);
+                                if (liveToolReplyTimer) clearTimeout(liveToolReplyTimer);
+                                liveToolReplyTimer = setTimeout(() => {
+                                    if (!window._liveSpoke) {
+                                        speakText(result.message);
+                                    }
+                                }, 1200);
+                                return;
+                            }
+                            if (result.sop_data) {
+                                appendNotice('Voice SOP Generated: ' + result.title);
+                                renderSop(result.sop_data);
+                                if (liveToolReplyTimer) clearTimeout(liveToolReplyTimer);
+                                liveToolReplyTimer = setTimeout(() => {
+                                    if (!window._liveSpoke && result.message) {
+                                        speakText(result.message);
+                                    }
+                                }, 1200);
+                                return;
+                            }
                             const names = (result.approved_documents || []).map((document) => document.name);
                             const sources = (result.extracted_sources || []).map((source) => source.document_name);
                             appendNotice(
@@ -1716,6 +1784,44 @@
                 async function handleLiveToolCall(toolCall) {
                     const functionResponses = [];
                     for (const call of (toolCall.functionCalls || [])) {
+                        if (call.name === 'generate_sop') {
+                            try {
+                                const response = await fetch('/api/voice/generate-sop', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        machine_name: call.args?.machine_name || '',
+                                        procedure_name: call.args?.procedure_name || '',
+                                        error_code: call.args?.error_code || '',
+                                        expert_notes: call.args?.expert_notes || ''
+                                    })
+                                });
+                                const payload = await response.json();
+                                if (payload.sop_data) {
+                                    appendNotice('Voice SOP Generated: ' + payload.title);
+                                    renderSop(payload.sop_data);
+                                } else if (payload.status === 'missing_details') {
+                                    appendNotice('Voice SOP: ' + payload.message);
+                                }
+                                functionResponses.push({
+                                    name: call.name,
+                                    id: call.id,
+                                    response: { result: JSON.stringify(payload) }
+                                });
+                                if (liveToolReplyTimer) clearTimeout(liveToolReplyTimer);
+                                liveToolReplyTimer = setTimeout(() => {
+                                    if (!window._liveSpoke && payload.message) speakText(payload.message);
+                                }, 1200);
+                            } catch (e) {
+                                functionResponses.push({
+                                    name: call.name,
+                                    id: call.id,
+                                    response: { error: 'Failed to generate SOP: ' + e.message }
+                                });
+                            }
+                            continue;
+                        }
+
                         if (call.name !== 'search_knowledge_base') {
                             functionResponses.push({
                                 name: call.name,
@@ -2407,6 +2513,27 @@
                 const sop = await response.json();
                 const isAdmin = currentUser && currentUser.role === 'admin';
 
+                const partImageCard = (part, compact = false) => {
+                    if (!part || !part.part_image) return '';
+                    const imageUrl = part.part_image;
+                    return `
+                        <div class="bg-white rounded-lg border border-slate-300 p-2 ${compact ? 'mt-2' : ''}">
+                            <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(part.part_name || 'Machine part')}" class="w-full ${compact ? 'h-24' : 'h-32'} object-contain rounded border border-slate-200 bg-slate-50">
+                            <div class="mt-1 text-[10px] font-bold text-slate-800">${escapeHtml(part.part_name || 'Machine part')}</div>
+                            ${part.source_page ? `<div class="text-[9px] text-slate-500">Original source page ${escapeHtml(part.source_page)}</div>` : ''}
+                        </div>
+                    `;
+                };
+
+                const relatedPartsSection = (sop.related_parts || []).length > 0 ? `
+                    <div class="space-y-2 pt-1">
+                        <span class="text-[11px] font-mono uppercase tracking-wide text-industrial-accent block font-semibold"><i class="fa-solid fa-gears mr-1"></i>Related Machine Parts</span>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            ${(sop.related_parts || []).map(part => partImageCard(part)).join('')}
+                        </div>
+                    </div>
+                ` : '';
+
                 // Steps HTML
                 const stepsHtml = (sop.steps || []).map(step => {
                     const citationsBadges = (step.citation_ids || []).map(c => `
@@ -2428,6 +2555,11 @@
                                     <span>${escapeHtml(step.caution)}</span>
                                 </div>
                             ` : ''}
+                            ${step.part_image ? partImageCard({
+                                part_name: step.part_name,
+                                part_image: step.part_image,
+                                source_page: step.part_source_page
+                            }, true) : ''}
                         </div>
                     `;
                 }).join('');
@@ -2436,7 +2568,7 @@
                 let checksSection = '';
                 if (sop.checks && sop.checks.length > 0) {
                     const checksList = sop.checks.map(c => {
-                        const text = typeof c === 'string' ? c : (c.check || JSON.stringify(c));
+                        const text = typeof c === 'string' ? c : (c.text || c.check || '');
                         const citeIds = Array.isArray(c.citation_ids) ? c.citation_ids.map(id => `
                             <span class="text-[10px] font-mono bg-industrial-900 border border-industrial-cyan text-industrial-cyan px-1.5 py-0.5 rounded">${escapeHtml(id)}</span>
                         `).join(' ') : '';
@@ -2604,6 +2736,9 @@
                                 <a href="/api/sops/${sop.id}/export" target="_blank" class="bg-industrial-accent hover:bg-orange-600 text-black text-xs font-bold px-3 py-1.5 rounded transition flex items-center gap-1.5 shadow font-mono" title="Download 5-page dark executive engineering SOP report PDF">
                                     <i class="fa-solid fa-file-pdf"></i> Download Executive Report (PDF)
                                 </a>
+                                <a href="/api/sops/${sop.id}/quick-export" target="_blank" class="bg-white hover:bg-slate-200 text-black text-xs font-bold px-3 py-1.5 rounded transition flex items-center gap-1.5 shadow font-mono" title="Download concise black-and-white SOP with original source references and figures">
+                                    <i class="fa-solid fa-file-lines"></i> Quick B/W SOP
+                                </a>
                                 <button onclick="exportSopPdf(${sop.id})" class="bg-industrial-cyan hover:bg-cyan-400 text-black text-xs font-bold px-2.5 py-1.5 rounded transition flex items-center gap-1 shadow">
                                     <i class="fa-solid fa-download"></i> Export PDF
                                 </button>
@@ -2620,8 +2755,8 @@
                             </div>
                         </div>
 
-                        ${aiProblemBanner}
                         ${machineContextBanner}
+                        ${relatedPartsSection}
 
                         <!-- Problem Statement -->
                         <div class="bg-industrial-900/80 rounded-lg p-3 border border-industrial-700/60">
@@ -3557,9 +3692,10 @@
 
         async function submitCreateNewChat() {
             const machineId = document.getElementById('newChatMachineId').value.trim();
-            const machineType = document.getElementById('newChatMachineType').value.trim();
             const problem = document.getElementById('newChatProblem').value.trim();
+            const errorCode = document.getElementById('newChatErrorCode').value.trim();
             const moduleName = document.getElementById('newChatModule').value.trim();
+            const imageFile = document.getElementById('newChatErrorImage').files[0];
 
             if (!machineId && !problem) {
                 alert('Please enter at least a Machine ID or Problem summary.');
@@ -3577,7 +3713,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         machine_id: machineId || null,
-                        machine_type: machineType || null,
+                        error_code: errorCode || null,
+                        error_image: errorImage,
                         problem: problem || null,
                         module_name: moduleName || null,
                         member_ids: selectedMemberIds,
@@ -3588,8 +3725,9 @@
 
                 closeNewChatModal();
                 document.getElementById('newChatMachineId').value = '';
-                document.getElementById('newChatMachineType').value = '';
                 document.getElementById('newChatProblem').value = '';
+                document.getElementById('newChatErrorCode').value = '';
+                document.getElementById('newChatErrorImage').value = '';
 
                 await loadChatSessionsList();
                 await switchToChatSession(data.session_id);
@@ -3736,29 +3874,35 @@
             <div class="space-y-3 text-xs">
                 <div>
                     <label class="block text-slate-300 font-medium mb-1">Machine ID / Equipment Tag <span class="text-industrial-accent">*</span></label>
-                    <input id="newChatMachineId" type="text" placeholder="e.g. RPA-990, LATHE-04, CONV-02" class="w-full bg-industrial-950 border border-industrial-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-industrial-cyan">
-                </div>
-
-                <div>
-                    <label class="block text-slate-300 font-medium mb-1">Machine Type / Line Description</label>
-                    <input id="newChatMachineType" type="text" placeholder="e.g. Robotic Packaging Arm | Line 2" class="w-full bg-industrial-950 border border-industrial-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-industrial-cyan">
+                    <input id="newChatMachineId" type="text" placeholder="e.g. RPA-990, LATHE-04, CONV-02" class="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-industrial-cyan">
                 </div>
 
                 <div>
                     <label class="block text-slate-300 font-medium mb-1">Problem / Symptom Summary <span class="text-industrial-accent">*</span></label>
-                    <input id="newChatProblem" type="text" placeholder="e.g. Arm stalling mid-cycle with ERR-909 servo jitter" class="w-full bg-industrial-950 border border-industrial-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-industrial-cyan">
+                    <input id="newChatProblem" type="text" placeholder="e.g. Arm stalling mid-cycle with ERR-909 servo jitter" class="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-industrial-cyan">
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-medium mb-1">Error Code</label>
+                    <input id="newChatErrorCode" type="text" placeholder="e.g. ERR-909, E-204" class="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-industrial-cyan">
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-medium mb-1">Error Image <span class="text-slate-500">(optional)</span></label>
+                    <input id="newChatErrorImage" type="file" accept="image/png,image/jpeg,image/webp" class="w-full text-xs text-slate-300 file:mr-3 file:rounded file:border-0 file:bg-industrial-700 file:px-3 file:py-1.5 file:text-xs file:text-slate-100 hover:file:bg-industrial-600">
+                    <p class="mt-1 text-[10px] text-slate-500">Upload a clear panel/error display photo, up to 5 MB.</p>
                 </div>
 
                 <div>
                     <label class="block text-slate-300 font-medium mb-1">Target Technical Manual / Module</label>
-                    <select id="newChatModule" class="w-full bg-industrial-950 border border-industrial-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-industrial-cyan">
+                    <select id="newChatModule" class="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-industrial-cyan">
                         <option value="">Auto-Detect from Approved Knowledge Base</option>
                     </select>
                 </div>
 
                 <div>
                     <label class="block text-slate-300 font-medium mb-1">Assign Team Members to Chat</label>
-                    <div id="newChatMembersCheckboxes" class="max-h-36 overflow-y-auto bg-industrial-950 border border-industrial-700 rounded-lg p-2 space-y-1.5">
+                    <div id="newChatMembersCheckboxes" class="max-h-36 overflow-y-auto bg-industrial-900 border border-industrial-700 rounded-lg p-2 space-y-1.5 text-slate-200">
                         <!-- Populated dynamically -->
                     </div>
                 </div>

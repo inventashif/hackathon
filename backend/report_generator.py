@@ -15,8 +15,337 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from xml.sax.saxutils import escape
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_text(value: Any) -> str:
+    """Convert stored/user text to ReportLab-safe paragraph markup."""
+    return escape(str(value or ""))
+
+
+def _compact_text(value: Any, limit: int = 220) -> str:
+    """Keep only a short, readable sentence for the quick-reference SOP."""
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if len(text) <= limit:
+        return text
+    shortened = text[:limit].rsplit(" ", 1)[0].rstrip(" ,;:")
+    return f"{shortened}..."
+
+
+def generate_simple_sop_report(
+    output_path: Path,
+    sop_data: dict[str, Any],
+    referenced_manual: str = "",
+) -> Path:
+    """Create a professional white-background SOP using only source-linked content."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    page_width, page_height = A4
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "QuickTitle", parent=styles["Heading1"], fontName="Helvetica-Bold",
+        fontSize=18, leading=22, textColor="#17324d", spaceAfter=5,
+    )
+    meta_style = ParagraphStyle(
+        "QuickMeta", parent=styles["Normal"], fontName="Helvetica",
+        fontSize=8, leading=10, textColor="#526579",
+    )
+    body_style = ParagraphStyle(
+        "QuickBody", parent=styles["Normal"], fontName="Helvetica",
+        fontSize=8.5, leading=11, textColor="#243b53",
+    )
+    small_style = ParagraphStyle(
+        "QuickSmall", parent=styles["Normal"], fontName="Helvetica",
+        fontSize=7.5, leading=9, textColor="#526579",
+    )
+    caution_style = ParagraphStyle(
+        "QuickCaution", parent=body_style, fontName="Helvetica-Bold",
+        textColor="#8a3b12",
+    )
+    section_style = ParagraphStyle(
+        "QuickSection", parent=styles["Heading2"], fontName="Helvetica-Bold",
+        fontSize=10.5, leading=13, textColor="#17324d", spaceBefore=7, spaceAfter=4,
+    )
+
+    def page_ref(citation_ids: Any) -> str:
+        ids = citation_ids if isinstance(citation_ids, list) else [citation_ids]
+        refs: list[str] = []
+        citations = {
+            str(c.get("reference_id", "")): c
+            for c in (sop_data.get("citations") or [])
+            if isinstance(c, dict)
+        }
+        for citation_id in ids:
+            citation = citations.get(str(citation_id).strip("[]"))
+            if not citation:
+                continue
+            passage = str(citation.get("passage", ""))
+            for match in re.findall(r"\[\[page:\s*(\d+)\]\]", passage):
+                if match not in refs:
+                    refs.append(match)
+        return ", ".join(f"p. {ref}" for ref in refs) or "page not recorded"
+
+    story: list[Any] = []
+    story.append(Table(
+        [[Paragraph("<b>NEXUSSOP</b>  |  CONTROLLED QUICK REFERENCE", meta_style),
+          Paragraph("<b>STATUS:</b> HUMAN REVIEW REQUIRED", meta_style)]],
+        colWidths=[page_width - 190, 150],
+        style=TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), "#eaf2f8"),
+            ("BOX", (0, 0), (-1, -1), 0.8, "#9fb3c8"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+            ("PADDING", (0, 0), (-1, -1), 7),
+        ]),
+    ))
+    story.append(Spacer(1, 8))
+    title = _compact_text(sop_data.get("title") or "Quick Reference SOP", 100)
+    story.append(Paragraph("STANDARD OPERATING PROCEDURE", meta_style))
+    story.append(Paragraph(_safe_text(title), title_style))
+    story.append(Paragraph(
+        f"<b>Equipment:</b> {_safe_text(sop_data.get('machine_name') or 'Not specified')} "
+        f"&nbsp;&nbsp; <b>Source:</b> {_safe_text(referenced_manual or 'Approved source manual')}",
+        meta_style,
+    ))
+    story.append(Spacer(1, 8))
+
+    steps = sop_data.get("steps") or []
+    figure_by_id = {
+        str(figure.get("id")): figure
+        for figure in (sop_data.get("figures") or [])
+        if figure.get("id") is not None
+    }
+    step_rows: list[list[Any]] = []
+    for step in steps[:6]:
+        number = _safe_text(step.get("number", len(step_rows) + 1))
+        text = _safe_text(_compact_text(step.get("instruction"), 240))
+        ref = _safe_text(page_ref(step.get("citation_ids", [])))
+        action_content: list[Any] = [Paragraph(text, body_style)]
+        part_asset = figure_by_id.get(str(step.get("part_asset_id")))
+        part_path = Path(str(part_asset.get("file_path", ""))) if part_asset else None
+        if step.get("part_name") and part_path and part_path.is_file():
+            try:
+                from PIL import Image as PILImage
+                with PILImage.open(part_path) as part_image:
+                    image_width, image_height = part_image.size
+                image_scale = min(95 / max(image_width, 1), 58 / max(image_height, 1))
+                action_content.append(Spacer(1, 3))
+                action_content.append(Image(
+                    str(part_path),
+                    width=image_width * image_scale,
+                    height=image_height * image_scale,
+                ))
+                action_content.append(Paragraph(
+                    f"<b>{_safe_text(step.get('part_name'))}</b>",
+                    small_style,
+                ))
+            except (OSError, ValueError):
+                pass
+        step_rows.append([
+            Paragraph(f"<b>{number}</b>", body_style),
+            action_content,
+            Paragraph(f"<b>{ref}</b>", small_style),
+        ])
+    if not step_rows:
+        step_rows.append([Paragraph("-", body_style), Paragraph("No grounded steps available.", body_style), Paragraph("—", small_style)])
+
+    step_header = [
+        Paragraph("<b>STEP</b>", small_style),
+        Paragraph("<b>REQUIRED ACTION</b>", small_style),
+        Paragraph("<b>SOURCE PAGE</b>", small_style),
+    ]
+    steps_table = Table([step_header] + step_rows, colWidths=[42, page_width - 134, 92], repeatRows=1)
+    steps_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.6, "#9fb3c8"),
+        ("BACKGROUND", (0, 0), (-1, 0), "#d9eaf7"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(Paragraph("1. PROCEDURE AT A GLANCE", section_style))
+    story.append(Spacer(1, 4))
+    story.append(steps_table)
+
+    related_parts = sop_data.get("related_parts") or []
+    if related_parts:
+        story.append(Paragraph("2. RELATED PARTS — VISUAL IDENTIFICATION", section_style))
+        related_rows: list[list[Any]] = []
+        for part in related_parts[:8]:
+            asset = figure_by_id.get(str(part.get("part_asset_id")))
+            path = Path(str(asset.get("file_path", ""))) if asset else None
+            content: list[Any] = [Paragraph(
+                f"<b>{_safe_text(part.get('part_name') or 'Machine part')}</b>",
+                body_style,
+            )]
+            if path and path.is_file():
+                try:
+                    from PIL import Image as PILImage
+                    with PILImage.open(path) as part_image:
+                        image_width, image_height = part_image.size
+                    image_scale = min(145 / max(image_width, 1), 80 / max(image_height, 1))
+                    content.append(Image(
+                        str(path),
+                        width=image_width * image_scale,
+                        height=image_height * image_scale,
+                    ))
+                except (OSError, ValueError):
+                    pass
+            content.append(Paragraph(
+                f"Source page: {_safe_text(part.get('source_page') or 'not recorded')}",
+                small_style,
+            ))
+            related_rows.append([content])
+        related_table = Table(related_rows, colWidths=[page_width - 80])
+        related_table.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, "#9fb3c8"),
+            ("BACKGROUND", (0, 0), (-1, -1), "#f8fafc"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(related_table)
+
+    checks = sop_data.get("checks") or []
+    cautions: list[str] = []
+    for step in steps[:6]:
+        caution = _compact_text(step.get("caution"), 180)
+        if caution and caution not in cautions:
+            cautions.append(caution)
+    if checks or cautions:
+        story.append(Spacer(1, 9))
+        story.append(Paragraph("3. SAFETY AND VERIFICATION", section_style))
+        important_rows: list[list[Any]] = []
+        for item in cautions[:4]:
+            important_rows.append([Paragraph(f"CAUTION: {_safe_text(_compact_text(item, 220))}", caution_style)])
+        for check in checks[:3]:
+            important_rows.append([Paragraph(
+                f"CHECK: {_safe_text(_compact_text(check.get('text'), 220))} "
+                f"({_safe_text(page_ref(check.get('citation_ids', [])))})", body_style,
+            )])
+        important_table = Table(important_rows, colWidths=[page_width - 80])
+        important_table.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.7, "#9fb3c8"),
+            ("INNERGRID", (0, 0), (-1, -1), 0.4, "#cbd5e1"),
+            ("BACKGROUND", (0, 0), (-1, -1), "#f8fafc"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(important_table)
+
+    if steps:
+        story.append(Paragraph("4. PROCEDURE FLOW", section_style))
+        flow_width = page_width - 80
+        flow = Drawing(flow_width, 78)
+        visible_steps = steps[:6]
+        node_width = (flow_width - 12) / len(visible_steps)
+        for index, step in enumerate(visible_steps):
+            x = 4 + index * node_width
+            flow.add(Rect(
+                x, 20, node_width - 14, 38, rx=4, ry=4,
+                fillColor="#f8fafc", strokeColor="#78909c", strokeWidth=0.8,
+            ))
+            flow.add(String(
+                x + 5, 43, f"STEP {index + 1}",
+                fontName="Helvetica-Bold", fontSize=7, fillColor="#17324d",
+            ))
+            flow.add(String(
+                x + 5, 31, _compact_text(step.get("instruction"), 30),
+                fontName="Helvetica", fontSize=6.2, fillColor="#526579",
+            ))
+            if index < len(visible_steps) - 1:
+                arrow_x = x + node_width - 14
+                flow.add(Line(arrow_x, 39, arrow_x + 9, 39, strokeColor="#78909c", strokeWidth=1))
+                flow.add(Polygon(
+                    [arrow_x + 9, 39, arrow_x + 4, 42, arrow_x + 4, 36],
+                    fillColor="#78909c", strokeColor="#78909c",
+                ))
+        story.append(flow)
+
+    story.append(Paragraph("5. DECISION ALGORITHM", section_style))
+    algorithm_rows = [
+        [Paragraph("<b>INPUT</b>", small_style), Paragraph("Machine, task or symptom and approved manual evidence.", body_style)],
+        [Paragraph("<b>RETRIEVE</b>", small_style), Paragraph("Find relevant passages, figures and original source pages.", body_style)],
+        [Paragraph("<b>CHECK</b>", small_style), Paragraph("If evidence is insufficient, stop and escalate; do not guess.", body_style)],
+        [Paragraph("<b>GENERATE</b>", small_style), Paragraph("Create concise cited actions, warnings and verification checks.", body_style)],
+        [Paragraph("<b>VERIFY</b>", small_style), Paragraph("Review the original pages and figures before use.", body_style)],
+    ]
+    algorithm_table = Table(algorithm_rows, colWidths=[82, page_width - 162])
+    algorithm_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, "#9fb3c8"),
+        ("BACKGROUND", (0, 0), (0, -1), "#eaf2f8"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("PADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(algorithm_table)
+
+    citation_counts: dict[str, int] = {}
+    for step in steps:
+        for citation_id in step.get("citation_ids") or []:
+            citation_counts[str(citation_id)] = citation_counts.get(str(citation_id), 0) + 1
+    if citation_counts:
+        story.append(Paragraph("6. EVIDENCE COVERAGE", section_style))
+        chart_width = page_width - 80
+        chart = Drawing(chart_width, 112)
+        labels = list(citation_counts)[:8]
+        max_count = max(citation_counts.values())
+        for index, label in enumerate(labels):
+            y = 92 - index * 12
+            count = citation_counts[label]
+            chart.add(String(0, y + 2, label, fontName="Helvetica-Bold", fontSize=7, fillColor="#526579"))
+            width = max(8, (chart_width - 55) * count / max_count)
+            chart.add(Rect(35, y, width, 9, fillColor="#5b8db8", strokeColor="#5b8db8"))
+            chart.add(String(41 + width, y + 1, str(count), fontName="Helvetica-Bold", fontSize=7, fillColor="#17324d"))
+        story.append(chart)
+        story.append(Paragraph(
+            "Counts show how often each retrieved reference supports a step. They are evidence coverage, not a correctness probability.",
+            small_style,
+        ))
+
+    figures = sop_data.get("figures") or []
+    used_figure_ids = {
+        str(fid)
+        for step in steps
+        for fid in (step.get("figure_ids") or [])
+    }
+    original_figures = [
+        figure for figure in figures
+        if str(figure.get("id")) in used_figure_ids and Path(str(figure.get("file_path", ""))).is_file()
+    ]
+    for figure in original_figures[:6]:
+        image_path = Path(str(figure["file_path"]))
+        try:
+            from PIL import Image as PILImage
+            with PILImage.open(image_path) as source_image:
+                width, height = source_image.size
+            max_width, max_height = page_width - 80, 240
+            scale = min(max_width / max(width, 1), max_height / max(height, 1))
+            story.append(Spacer(1, 9))
+            story.append(Paragraph(
+                f"<b>ORIGINAL FIGURE — SOURCE PAGE { _safe_text(figure.get('page_number') or '?') }</b>",
+                section_style,
+            ))
+            story.append(Image(str(image_path), width=width * scale, height=height * scale))
+            story.append(Paragraph(
+                _safe_text(_compact_text(figure.get("caption") or "Original source figure", 180)),
+                small_style,
+            ))
+        except (OSError, ValueError):
+            continue
+
+    story.append(Spacer(1, 10))
+    story.append(Paragraph(
+        "<b>REFERENCE:</b> Use the original approved manual pages cited above. "
+        "This quick-reference sheet does not replace the source manual or required human approval.",
+        small_style,
+    ))
+    doc = SimpleDocTemplate(
+        str(output_path), pagesize=A4, rightMargin=40, leftMargin=40,
+        topMargin=36, bottomMargin=36,
+    )
+    doc.build(story)
+    return output_path
 
 from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import A4
@@ -78,7 +407,10 @@ class NumberedCanvas(canvas.Canvas):
         num_pages = len(self._saved_page_states)
         for state in self._saved_page_states:
             self.__dict__.update(state)
+            page_content = self._code
+            self._code = []
             self.draw_page_decorations(num_pages)
+            self._code.extend(page_content)
             super().showPage()
         super().save()
 
@@ -890,8 +1222,8 @@ def generate_dark_sop_report(
     c_w = w_avail / 3
     sec1_data = [
         [Paragraph("Machine", styles["SubLabel"]), Paragraph("Operator", styles["SubLabel"]), Paragraph("Assisting tool", styles["SubLabel"])],
-        [Paragraph(machine_name, styles["ValText"]), Paragraph(operator_name, styles["ValText"]), Paragraph("Multimodal GenAI Assistant", styles["ValText"])],
-        [Paragraph(machine_type, styles["BodyText"]), Paragraph(operator_badge, styles["BodyText"]), Paragraph(f"v2.1 ({assisting_model})", styles["BodyText"])],
+        [Paragraph(_safe_text(machine_name), styles["ValText"]), Paragraph(_safe_text(operator_name), styles["ValText"]), Paragraph("Multimodal GenAI Assistant", styles["ValText"])],
+        [Paragraph(_safe_text(machine_type), styles["BodyText"]), Paragraph(_safe_text(operator_badge), styles["BodyText"]), Paragraph(f"v2.1 ({_safe_text(assisting_model)})", styles["BodyText"])],
     ]
     sec1_table = Table(sec1_data, colWidths=[c_w, c_w, c_w])
     sec1_table.setStyle(
@@ -908,15 +1240,15 @@ def generate_dark_sop_report(
 
     # 3. Section 2: Incident & Error Diagnostic
     story.append(Paragraph("2. Incident and error diagnostic", styles["SecHeading"]))
-    prob_text = sop_data.get("problem") or "Arm stalling mid-cycle with erratic jittering."
+    prob_text = sop_data.get("problem") or "No problem statement was recorded."
     sec2_data = [
         [
             Paragraph("Reported symptom", styles["SubLabel"]),
             Paragraph("Captured error code", styles["SubLabel"]),
         ],
         [
-            Paragraph(prob_text, styles["BodyText"]),
-            Paragraph(f"<b>{error_code}</b><br/>Servo over-current / Axis Z obstruction", styles["ValText"]),
+            Paragraph(_safe_text(prob_text), styles["BodyText"]),
+            Paragraph(f"<b>{_safe_text(error_code)}</b>", styles["ValText"]),
         ],
         [
             Paragraph("Multimodal input", styles["SubLabel"]),
@@ -943,8 +1275,8 @@ def generate_dark_sop_report(
     # 4. Section 3: Retrieval & Safety Protocols
     story.append(Paragraph("3. Retrieval and safety protocols", styles["SecHeading"]))
     sec3_meta = [
-        [Paragraph(f"<b>Referenced manual:</b> {referenced_manual}  (pages {manual_pages})", styles["BodyText"])],
-        [Paragraph(f"<b>Wiring / schematic:</b> {schematic_ref}", styles["BodyText"])],
+        [Paragraph(f"<b>Referenced manual:</b> {_safe_text(referenced_manual)}  (pages {_safe_text(manual_pages)})", styles["BodyText"])],
+        [Paragraph(f"<b>Wiring / schematic:</b> {_safe_text(schematic_ref)}", styles["BodyText"])],
     ]
     meta_t = Table(sec3_meta, colWidths=[w_avail])
     meta_t.setStyle(
@@ -991,17 +1323,18 @@ def generate_dark_sop_report(
     steps = sop_data.get("steps") or []
     if not steps:
         steps = [
-            {"number": 1, "instruction": "Operator engaged emergency stop and toggled the LOTO safety switch at Main Panel B. Confirmed via sensor.", "caution": "Verify zero-energy state."},
-            {"number": 2, "instruction": "Followed AI prompt to remove safety guard #3 using 5 mm Allen key, then extracted jammed shrink-wrap from drive teeth.", "caution": ""},
-            {"number": 3, "instruction": "Inspected gear teeth for stripping. Teeth integrity verified as nominal (100% intact).", "caution": ""},
-            {"number": 4, "instruction": "Cleared error code via control pad and ran diagnostic dry-run. Calibration returned to nominal parameters.", "caution": ""},
+            {
+                "number": 1,
+                "instruction": "No grounded procedure steps were recorded for this SOP.",
+                "caution": "Review the source evidence before treating this report as an executable procedure.",
+            },
         ]
 
     step_rows = []
     for step in steps[:4]:  # Fit cleanly on page 1
         num = step.get("number", 1)
-        inst = step.get("instruction", "")
-        caut = step.get("caution", "")
+        inst = _safe_text(step.get("instruction", ""))
+        caut = _safe_text(step.get("caution", ""))
         num_cell = Paragraph(f"<b><font size=11 color='#f26a0f'>[ {num} ]</font></b>", styles["ValText"])
         text_cell = [Paragraph(inst, styles["BodyText"])]
         if caut:
@@ -1023,11 +1356,31 @@ def generate_dark_sop_report(
     )
     story.append(step_table)
 
+    checks = sop_data.get("checks") or []
+    if checks:
+        story.append(Spacer(1, 8))
+        story.append(Paragraph("Verification checks", styles["SubLabel"]))
+        check_rows = []
+        for check in checks:
+            check_rows.append([
+                Paragraph(_safe_text(check.get("text", "")), styles["BodyText"]),
+                Paragraph(_safe_text(", ".join(str(cid) for cid in check.get("citation_ids", []))), styles["SubLabel"]),
+            ])
+        checks_table = Table(check_rows, colWidths=[w_avail * 0.78, w_avail * 0.22])
+        checks_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), COLOR_CARD_BG),
+            ("BOX", (0, 0), (-1, -1), 0.75, COLOR_CARD_BORDER),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, COLOR_CARD_BORDER),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(checks_table)
+
     # =========================================================================
     # PAGE 2: FULL-PAGE TROUBLESHOOTING FLOWCHART
     # =========================================================================
     story.append(PageBreak())
-    story.append(Paragraph(f"Figure 1. Troubleshooting flowchart for {error_code}, {machine_name}", styles["FigureCaption"]))
+    story.append(Paragraph(f"Figure 1. Troubleshooting flowchart for {_safe_text(error_code)}, {_safe_text(machine_name)}", styles["FigureCaption"]))
     story.append(_draw_flowchart_page2(error_code, steps))
     story.append(Spacer(1, 8))
     story.append(Paragraph("Solid lines denote verified path taken in this session. Dashed paths represent contingency escalation branches.", styles["FigureNote"]))
@@ -1048,19 +1401,30 @@ def generate_dark_sop_report(
     story.append(Spacer(1, 10))
 
     story.append(Paragraph("5. Worker feedback and shift log annotation", styles["SecHeading"]))
+    feedback = sop_data.get("feedback") or []
+    notes = sop_data.get("notes") or []
+    feedback_text = "\n".join(
+        f"{f.get('display_name', 'Engineer')}: {f.get('outcome', '')} - {f.get('applied_how', '')}"
+        + (f" ({f.get('notes')})" if f.get("notes") else "")
+        for f in feedback
+    ) or "No field feedback has been recorded."
+    notes_text = "\n".join(
+        f"{n.get('display_name', 'Engineer')}: {n.get('body', '')}"
+        for n in notes
+    ) or "No engineer notes have been recorded."
     fb_table_data = [
         [Paragraph("Operator rating", styles["SubLabel"]), Paragraph("Expert shift note (added by operator)", styles["SubLabel"])],
         [
-            Paragraph("<b>Highly accurate (5/5).</b> Step-by-step guidance was verified and effective.", styles["BodyText"]),
-            Paragraph(f'"{expert_notes}"', styles["ValText"]),
+            Paragraph(_safe_text(feedback_text), styles["BodyText"]),
+            Paragraph(f'"{_safe_text(expert_notes)}"', styles["ValText"]),
         ],
         [
-            Paragraph("Knowledge base update status", styles["SubLabel"]),
+            Paragraph("Engineer notes", styles["SubLabel"]),
             Paragraph("Review routing", styles["SubLabel"]),
         ],
         [
-            Paragraph("Note successfully routed and appended to the Plant Engineering Supervisor review queue.", styles["BodyText"]),
-            Paragraph("Supervisor: Maintenance Lead M. Vance (Pending next SOP revision cycle)", styles["BodyText"]),
+            Paragraph(_safe_text(notes_text), styles["BodyText"]),
+            Paragraph(f"Supervisor: {_safe_text(supervisor_name)}", styles["BodyText"]),
         ],
     ]
     fb_table = Table(fb_table_data, colWidths=[w_avail * 0.4, w_avail * 0.6])
@@ -1109,8 +1473,8 @@ def generate_dark_sop_report(
     signoff_data = [
         [Paragraph("Operator sign-off", styles["SubLabel"]), Paragraph("Supervisor sign-off", styles["SubLabel"])],
         [
-            Paragraph(f"<b>{operator_name}</b><br/>Verified via PWA biometric / PIN authentication<br/><font color='#10b981'><b>[ VERIFIED ]</b></font>", styles["BodyText"]),
-            Paragraph(f"<b>{supervisor_name}</b><br/>Electronic sign-off recorded in plant audit ledger<br/><font color='#10b981'><b>[ AUTO-APPROVED ]</b></font>", styles["BodyText"]),
+            Paragraph(f"<b>{_safe_text(operator_name)}</b><br/>Generated from the authenticated SOP session", styles["BodyText"]),
+            Paragraph(f"<b>{_safe_text(supervisor_name)}</b><br/>Pending human review before operational use", styles["BodyText"]),
         ],
     ]
     signoff_t = Table(signoff_data, colWidths=[w_avail / 2, w_avail / 2])
@@ -1133,11 +1497,11 @@ def generate_dark_sop_report(
     # Metadata Table
     meta_table_data = [
         [Paragraph("Generated by", styles["SubLabel"]), Paragraph("Multimodal GenAI Industrial Assistant Core Engine", styles["BodyText"])],
-        [Paragraph("Assistant version", styles["SubLabel"]), Paragraph(f"v2.1 Edge Edition ({assisting_model})", styles["BodyText"])],
+        [Paragraph("Assistant version", styles["SubLabel"]), Paragraph(f"v2.1 Edge Edition ({_safe_text(assisting_model)})", styles["BodyText"])],
         [Paragraph("Record type", styles["SubLabel"]), Paragraph("Plant engineering / automated maintenance session", styles["BodyText"])],
-        [Paragraph("Plant", styles["SubLabel"]), Paragraph(plant_name, styles["BodyText"])],
-        [Paragraph("Machine", styles["SubLabel"]), Paragraph(f"{machine_name}  |  {machine_type}", styles["BodyText"])],
-        [Paragraph("Report ID", styles["SubLabel"]), Paragraph(report_id, styles["ValText"])],
+        [Paragraph("Plant", styles["SubLabel"]), Paragraph(_safe_text(plant_name), styles["BodyText"])],
+        [Paragraph("Machine", styles["SubLabel"]), Paragraph(f"{_safe_text(machine_name)}  |  {_safe_text(machine_type)}", styles["BodyText"])],
+        [Paragraph("Report ID", styles["SubLabel"]), Paragraph(_safe_text(report_id), styles["ValText"])],
     ]
     meta_t5 = Table(meta_table_data, colWidths=[120, w_avail - 120])
     meta_t5.setStyle(

@@ -32,9 +32,6 @@
             }
         });
     </script>
-    <!-- Google Fonts: Inter & JetBrains Mono -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -55,8 +52,8 @@
                         }
                     },
                     fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace']
+                        sans: ['Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                        mono: ['Consolas', 'Monaco', 'Courier New', 'monospace']
                     }
                 }
             }
@@ -67,6 +64,9 @@
         body {
             background: #f8fafc;
             color: #172b4d;
+            font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
         }
         .text-slate-100, .text-slate-200, .text-slate-300 {
             color: #243b53 !important;
@@ -1739,9 +1739,23 @@
                     return;
                 }
                 try {
-                    speechRecognition.start();
-                    isVoiceActive = true;
-                    micBtn.classList.add('text-industrial-accent', 'animate-pulse');
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        throw new Error('Microphone requires HTTPS or localhost in a supported browser.');
+                    }
+                    navigator.mediaDevices.getUserMedia({ audio: true })
+                        .then(stream => {
+                            stream.getTracks().forEach(track => track.stop());
+                            speechRecognition.start();
+                            isVoiceActive = true;
+                            micBtn.classList.add('text-industrial-accent', 'animate-pulse');
+                        })
+                        .catch(error => {
+                            const message = error.name === 'NotAllowedError'
+                                ? 'Microphone permission is blocked. Allow it in the address-bar site settings and reload.'
+                                : `Microphone unavailable: ${error.message || error.name}`;
+                            speechStatus.innerText = message;
+                            appendNotice(message, true);
+                        });
                     speechStatus.innerText = "Voice Recognition: Listening...";
                 } catch(e) {
                     const message = e.name === 'InvalidStateError'

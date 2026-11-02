@@ -54,12 +54,13 @@ python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
 Alternatively, Windows users can double-click `run.bat`; Linux/macOS users can
-run `./run.sh`. On the host computer, open `http://localhost:8000` or
-`http://127.0.0.1:8000`; browsers treat localhost as a secure context for
-microphone access. Plain HTTP on a LAN IP is not a secure context and browsers
-will block the microphone. For LAN voice access, provide a trusted certificate
-and key, then set `SOP_SSL_CERTFILE` and `SOP_SSL_KEYFILE` before starting; the
-launcher will serve HTTPS and the frontend will use `wss://` automatically.
+run `./run.sh`. The launchers generate a local HTTPS certificate when OpenSSL
+is available and start at `https://localhost:8000`. Accept the one-time
+certificate warning, then allow microphone access. Install `mkcert` for a
+trusted local certificate without that warning. For LAN voice access, use a
+certificate trusted for the machine hostname/IP; the frontend automatically
+uses `wss://`. If certificate generation is unavailable, use
+`http://localhost:8000`; plain HTTP on a LAN IP cannot access the microphone.
 The launcher prints the detected LAN URL when it starts.
 Interactive API documentation is available at the same address followed by
 `/docs`.

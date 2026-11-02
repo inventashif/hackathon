@@ -340,6 +340,23 @@ def generate_simple_sop_report(
         "This quick-reference sheet does not replace the source manual or required human approval.",
         small_style,
     ))
+    # Keep the quick export evidence-complete: append the original source pages
+    # used by its citations, just like the full maintenance report.
+    reference_styles = {
+        "SecHeading": section_style,
+        "ValText": small_style,
+        "FigureNote": small_style,
+    }
+    _append_real_reference_pages(
+        story=story,
+        referenced_manual=referenced_manual,
+        manual_pages="",
+        sop_data=sop_data,
+        styles=reference_styles,
+        w_avail=page_width - 80,
+        report_id="QUICK-REFERENCE",
+    )
+
     doc = SimpleDocTemplate(
         str(output_path), pagesize=A4, rightMargin=40, leftMargin=40,
         topMargin=36, bottomMargin=36,
@@ -1051,7 +1068,9 @@ def _append_real_reference_pages(
                 break
 
     rendered_pages = 0
-    max_ref_pages = 2
+    # Include every distinct page cited by the generated SOP, while keeping a
+    # defensive cap for unusually broad manuals or malformed citation data.
+    max_ref_pages = 8
 
     # Case A: Source file is a PDF and PyMuPDF is available
     if target_file and target_file.suffix.lower() == ".pdf" and fitz:
@@ -1073,8 +1092,7 @@ def _append_real_reference_pages(
             for c in citations:
                 if isinstance(c, dict):
                     passage = c.get("passage", "")
-                    page_match = re.search(r"\[\[page:\s*(\d+)\]\]", passage)
-                    if page_match:
+                    for page_match in re.finditer(r"\[\[page:\s*(\d+)\]\]", passage):
                         p_num = int(page_match.group(1))
                         if 1 <= p_num <= total_pdf_pages:
                             target_pages.append(p_num - 1)

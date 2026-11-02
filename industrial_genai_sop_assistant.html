@@ -108,6 +108,20 @@
             );
         }
 
+        @media (min-width: 768px) {
+            #sidebar.sidebar-collapsed {
+                width: 3.75rem;
+            }
+
+            #sidebar.sidebar-collapsed .sidebar-expandable {
+                display: none;
+            }
+
+            #sidebar.sidebar-collapsed #sidebarHeader {
+                justify-content: center;
+            }
+        }
+
         @media (max-width: 767px) {
             #sidebar {
                 position: absolute;
@@ -303,16 +317,21 @@
         <!-- SIDEBAR: SOP & MANUAL LIBRARY -->
         <aside id="sidebar" class="w-80 bg-industrial-800 border-r border-industrial-600 flex flex-col shrink-0 transition-all duration-300 z-10">
             <!-- Library Header -->
-            <div class="p-3 border-b border-industrial-700 flex items-center justify-between bg-industrial-800">
-                <div class="flex items-center space-x-2">
+            <div id="sidebarHeader" class="p-3 border-b border-industrial-700 flex items-center justify-between bg-industrial-800">
+                <div class="sidebar-expandable flex items-center space-x-2">
                     <i class="fa-solid fa-book-bookmark text-industrial-accent"></i>
                     <h2 class="font-bold text-sm text-slate-200 uppercase tracking-wide">Knowledge Vault</h2>
                 </div>
-                <span id="docCount" class="text-xs bg-industrial-700 text-industrial-cyan font-mono px-2 py-0.5 rounded-full border border-industrial-600">Loading</span>
+                <div class="flex items-center gap-1">
+                    <span id="docCount" class="sidebar-expandable text-xs bg-industrial-700 text-industrial-cyan font-mono px-2 py-0.5 rounded-full border border-industrial-600">Loading</span>
+                    <button id="desktopSidebarToggle" type="button" onclick="toggleKnowledgeVault()" class="hidden md:inline-flex text-slate-400 hover:text-white p-1 rounded" aria-label="Collapse knowledge vault">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Document Search & Filter -->
-            <div class="p-3 border-b border-industrial-700 space-y-2">
+            <div class="sidebar-expandable p-3 border-b border-industrial-700 space-y-2">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
                     <input type="text" id="docSearch" placeholder="Search manuals, SOPs, tags..." class="w-full bg-industrial-900 text-xs text-slate-200 pl-8 pr-3 py-2 rounded border border-industrial-700 focus:outline-none focus:border-industrial-cyan transition">
@@ -320,12 +339,12 @@
             </div>
 
             <!-- Pre-loaded Document List -->
-            <div id="documentList" class="flex-1 overflow-y-auto p-2 space-y-2" aria-live="polite">
+            <div id="documentList" class="sidebar-expandable flex-1 overflow-y-auto p-2 space-y-2" aria-live="polite">
                 <p class="p-3 text-xs text-slate-400">Connecting to knowledge base...</p>
             </div>
 
             <!-- PDF Upload Dropzone -->
-            <div class="p-3 border-t border-industrial-700 bg-industrial-900/80">
+            <div class="sidebar-expandable p-3 border-t border-industrial-700 bg-industrial-900/80">
                 <label for="pdfUploadInput" class="border-2 border-dashed border-industrial-600 hover:border-industrial-cyan rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer transition bg-industrial-800/50 hover:bg-industrial-800 group">
                     <i class="fa-solid fa-cloud-arrow-up text-industrial-cyan group-hover:scale-110 transition text-lg mb-1"></i>
                     <span class="text-xs font-medium text-slate-300">Add Source Document</span>
@@ -410,7 +429,7 @@
                         <i class="fa-solid fa-plus"></i>
                         <span>New Machine Chat</span>
                     </button>
-                    <a id="exportKnowledgeBtn" href="#" target="_blank" class="bg-white hover:bg-slate-200 text-black font-semibold px-2.5 py-1 rounded-lg text-xs flex items-center space-x-1.5 shadow" title="Export this chat as structured expert knowledge PDF">
+                    <a id="exportKnowledgeBtn" href="#" onclick="event.preventDefault(); downloadKnowledgePdf();" class="bg-white hover:bg-slate-200 text-black font-semibold px-2.5 py-1 rounded-lg text-xs flex items-center space-x-1.5 shadow" title="Export this chat as structured expert knowledge PDF">
                         <i class="fa-solid fa-file-pdf"></i><span class="hidden md:inline">Knowledge PDF</span>
                     </a>
                 </div>
@@ -1178,9 +1197,50 @@
 
         function toggleKnowledgeVault() {
             const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            if (window.innerWidth >= 768) {
+                const collapsed = sidebar.classList.toggle('sidebar-collapsed');
+                const toggle = document.getElementById('desktopSidebarToggle');
+                if (toggle) {
+                    toggle.setAttribute('aria-label', collapsed ? 'Expand knowledge vault' : 'Collapse knowledge vault');
+                    toggle.innerHTML = `<i class="fa-solid fa-chevron-${collapsed ? 'right' : 'left'}"></i>`;
+                }
+                return;
+            }
             const isOpen = sidebar.classList.toggle('sidebar-open');
             document.getElementById('sidebarBackdrop').classList.toggle('hidden', !isOpen);
-            document.getElementById('toggleSidebarBtn').setAttribute('aria-expanded', String(isOpen));
+            const mobileToggle = document.getElementById('toggleSidebarBtn');
+            if (mobileToggle) mobileToggle.setAttribute('aria-expanded', String(isOpen));
+        }
+
+        async function downloadKnowledgePdf() {
+            if (!currentChatSessionId) {
+                alert('Select a troubleshooting chat before downloading its knowledge PDF.');
+                return;
+            }
+            try {
+                const response = await fetch(`/api/chat/sessions/${currentChatSessionId}/knowledge-export`);
+                if (!response.ok) {
+                    let detail = 'Knowledge PDF download failed.';
+                    try {
+                        const payload = await response.json();
+                        detail = payload.detail || detail;
+                    } catch (_) {}
+                    throw new Error(detail);
+                }
+                const blob = await response.blob();
+                if (!blob.size) throw new Error('The generated knowledge PDF is empty.');
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `NexusSOP_Expert_Knowledge_${currentChatSessionId.slice(0, 8)}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            } catch (error) {
+                alert(error.message);
+            }
         }
 
         function makeTextElement(tag, className, text) {

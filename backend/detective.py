@@ -45,6 +45,105 @@ GENERAL_QUESTIONS = [
     },
 ]
 
+LOCALIZED_GENERAL_QUESTIONS: dict[str, list[dict[str, str]]] = {
+    "English": GENERAL_QUESTIONS,
+    "Hindi": [
+        {"id": "general_what_happened", "text": "क्या हुआ था?", "kind": "general"},
+        {"id": "general_when_started", "text": "समस्या कब शुरू हुई?", "kind": "general"},
+        {"id": "general_visible_warning", "text": "क्या कोई दृश्यमान चेतावनी, अलार्म या डिस्प्ले संदेश दिखाई दे रहा है?", "kind": "general"},
+    ],
+    "Spanish": [
+        {"id": "general_what_happened", "text": "¿Qué sucedió?", "kind": "general"},
+        {"id": "general_when_started", "text": "¿Cuándo comenzó el problema?", "kind": "general"},
+        {"id": "general_visible_warning", "text": "¿Hay alguna advertencia, alarma o mensaje visible en la pantalla?", "kind": "general"},
+    ],
+    "German": [
+        {"id": "general_what_happened", "text": "Was ist passiert?", "kind": "general"},
+        {"id": "general_when_started", "text": "Wann hat das Problem begonnen?", "kind": "general"},
+        {"id": "general_visible_warning", "text": "Gibt es eine sichtbare Warnung, einen Alarm oder eine Display-Meldung?", "kind": "general"},
+    ],
+    "French": [
+        {"id": "general_what_happened", "text": "Que s'est-il passé ?", "kind": "general"},
+        {"id": "general_when_started", "text": "Quand le problème a-t-il commencé ?", "kind": "general"},
+        {"id": "general_visible_warning", "text": "Y a-t-il un avertissement, une alarme ou un message visible à l'écran ?", "kind": "general"},
+    ],
+    "Japanese": [
+        {"id": "general_what_happened", "text": "何が起きましたか？", "kind": "general"},
+        {"id": "general_when_started", "text": "問題はいつ始まりましたか？", "kind": "general"},
+        {"id": "general_visible_warning", "text": "目に見える警告、アラーム、またはディスプレイメッセージはありますか？", "kind": "general"},
+    ],
+}
+
+LOCALIZED_INSUFFICIENT_MESSAGES: dict[str, str] = {
+    "English": INSUFFICIENT_MESSAGE,
+    "Hindi": "स्वीकृत मैन्युअल इस नैदानिक प्रश्न के लिए पर्याप्त जानकारी प्रदान नहीं करता है। कृपया किसी अधिकृत तकनीशियन से परामर्श लें।",
+    "Spanish": "El manual aprobado no proporciona suficiente información para esta pregunta de diagnóstico. Por favor consulte a un técnico autorizado.",
+    "German": "Das freigegebene Handbuch enthält keine ausreichenden Informationen für diese Diagnosefrage. Bitte wenden Sie sich an einen autorisierten Techniker.",
+    "French": "Le manuel approuvé ne fournit pas suffisamment d'informations pour cette question de diagnostic. Veuillez consulter un technicien agréé.",
+    "Japanese": "承認されたマニュアルには、この診断質問に関する十分な情報が記載されていません。認定技術者にご相談ください。",
+}
+
+LOCALIZED_SAFETY_MESSAGES: dict[str, str] = {
+    "English": SAFETY_ESCALATION_MESSAGE,
+    "Hindi": "स्वीकृत मैन्युअल में शेष जांचों के लिए भौतिक या विद्युत निरीक्षण की आवश्यकता होती है। कवर न खोलें, लाइव सर्किट न मापें या उपकरण को अलग न करें। कृपया किसी अधिकृत तकनीशियन से परामर्श लें।",
+    "Spanish": "Las comprobaciones restantes del manual aprobado requieren una inspección física o eléctrica. No abra cubiertas, no mida circuitos bajo tensión ni desmonte el equipo. Por favor consulte a un técnico autorizado.",
+    "German": "Die verbleibenden Prüfungen im freigegebenen Handbuch erfordern eine physische oder elektrische Inspektion. Öffnen Sie keine Abdeckungen, messen Sie keine spannungsführenden Leitungen und zerlegen Sie das Gerät nicht. Bitte wenden Sie sich an einen autorisierten Techniker.",
+    "French": "Les vérifications restantes dans le manuel approuvé nécessitent une inspection physique ou électrique. N'ouvrez pas les capots, ne mesurez pas les circuits sous tension et ne démontez pas l'équipement. Veuillez consulter un technicien agréé.",
+    "Japanese": "承認されたマニュアルに記載されている残りの点検項目は、物理的または電気的な検査が必要です。カバーを開けたり、通電中の回路を測定したり、機器を分解したりしないでください。認定技術者にご相談ください。",
+}
+
+LOCALIZED_INTRO_MESSAGES: dict[str, str] = {
+    "English": (
+        "Smart Fault Detective will collect a few safe symptom questions, then ask "
+        "technical follow-ups only from approved manuals for this machine and model. "
+        "Pending or rejected documents are not used."
+    ),
+    "Hindi": (
+        "स्मार्ट फॉल्ट डिटेक्टिव कुछ सुरक्षित लक्षण प्रश्न पूछेगा, फिर इस मशीन और मॉडल के लिए "
+        "केवल स्वीकृत तकनीकी मैन्युअल से ही प्रश्न पूछेगा। लंबित या अस्वीकृत दस्तावेज़ों का उपयोग नहीं किया जाता है।"
+    ),
+    "Spanish": (
+        "Smart Fault Detective recopilará algunas preguntas seguras sobre los síntomas y luego "
+        "realizará un seguimiento técnico únicamente a partir de los manuales aprobados para esta máquina y modelo. "
+        "No se utilizan documentos pendientes ni rechazados."
+    ),
+    "German": (
+        "Smart Fault Detective erfasst zunächst einige sichere Symptomsfragen und stellt anschließend "
+        "technische Folgefragen ausschließlich aus den freigegebenen Handbüchern dieser Maschine und dieses Modells. "
+        "Ausstehende oder abgelehnte Dokumente werden nicht verwendet."
+    ),
+    "French": (
+        "Smart Fault Detective posera d'abord quelques questions de sécurité sur les symptômes, puis posera "
+        "des questions techniques de suivi uniquement à partir des manuels approuvés pour cette machine et ce modèle. "
+        "Les documents en attente ou rejetés ne sont pas utilisés."
+    ),
+    "Japanese": (
+        "スマートフォルトディテクティブは、安全な症状に関する基本的な質問を収集した後、"
+        "この機械とモデルの承認済みマニュアルのみに基づいて技術的なフォローアップ質問を行います。"
+        "保留中または却下されたドキュメントは使用されません。"
+    ),
+}
+
+
+def get_detective_questions(lang: str = "English") -> list[dict[str, str]]:
+    from backend.main import normalize_language
+    return LOCALIZED_GENERAL_QUESTIONS.get(normalize_language(lang), GENERAL_QUESTIONS)
+
+
+def get_detective_insufficient_msg(lang: str = "English") -> str:
+    from backend.main import normalize_language
+    return LOCALIZED_INSUFFICIENT_MESSAGES.get(normalize_language(lang), INSUFFICIENT_MESSAGE)
+
+
+def get_detective_safety_msg(lang: str = "English") -> str:
+    from backend.main import normalize_language
+    return LOCALIZED_SAFETY_MESSAGES.get(normalize_language(lang), SAFETY_ESCALATION_MESSAGE)
+
+
+def get_detective_intro_msg(lang: str = "English") -> str:
+    from backend.main import normalize_language
+    return LOCALIZED_INTRO_MESSAGES.get(normalize_language(lang), LOCALIZED_INTRO_MESSAGES["English"])
+
 UNSAFE_PATTERN = re.compile(
     r"\b("
     r"voltage|volt|amper|current|energiz|live\s+wire|arc\s*flash|shock|"
@@ -89,6 +188,7 @@ class DetectiveStartRequest(BaseModel):
     error_code: str = Field(default="", max_length=80)
     document_id: int | None = None
     initial_symptom: str = Field(default="", max_length=2000)
+    language: str | None = "English"
 
 
 class DetectiveAnswerRequest(BaseModel):
@@ -253,7 +353,7 @@ def _session_payload(connection: sqlite3.Connection, session_id: str) -> dict[st
         ],
         "current_question": current,
         "awaiting_answer": row["status"] in {"collecting", "questioning"},
-        "insufficient_message": INSUFFICIENT_MESSAGE,
+        "insufficient_message": get_detective_insufficient_msg(json.loads(row["state_json"]).get("language", "English") if row["state_json"] else "English"),
     }
 
 
@@ -505,6 +605,9 @@ def start_session(user_id: int, request: DetectiveStartRequest) -> dict[str, Any
             request.machine_model.strip(),
             request.document_id,
         )
+        session_lang = request.language or "English"
+        state["language"] = session_lang
+
         connection.execute(
             """
             INSERT INTO detective_sessions
@@ -525,25 +628,23 @@ def start_session(user_id: int, request: DetectiveStartRequest) -> dict[str, Any
                 now(),
             ),
         )
-        intro = (
-            "Smart Fault Detective will collect a few safe symptom questions, then ask "
-            "technical follow-ups only from approved manuals for this machine and model. "
-            "Pending or rejected documents are not used."
-        )
+        intro = get_detective_intro_msg(session_lang)
         _add_turn(connection, session_id, "assistant", "intro", intro)
 
         if not manuals:
+            insufficient_msg = get_detective_insufficient_msg(session_lang)
             _add_turn(
                 connection,
                 session_id,
                 "assistant",
                 "insufficient",
-                INSUFFICIENT_MESSAGE,
+                insufficient_msg,
             )
             _save_state(connection, session_id, "insufficient", state)
             return _session_payload(connection, session_id)
 
-        first = GENERAL_QUESTIONS[0]
+        gen_qs = get_detective_questions(session_lang)
+        first = gen_qs[0]
         state["asked_ids"].append(first["id"])
         state["general_index"] = 1
         _add_turn(
@@ -564,10 +665,13 @@ def _advance_after_answer(
     state: dict[str, Any],
 ) -> None:
     session_id = row["id"]
+    session_lang = state.get("language") or "English"
+    gen_qs = get_detective_questions(session_lang)
+
     if state.get("phase") == "collecting":
         next_index = int(state.get("general_index") or 0)
-        if next_index < len(GENERAL_QUESTIONS):
-            nxt = GENERAL_QUESTIONS[next_index]
+        if next_index < len(gen_qs):
+            nxt = gen_qs[next_index]
             state["asked_ids"].append(nxt["id"])
             state["general_index"] = next_index + 1
             _add_turn(
@@ -604,12 +708,13 @@ def _advance_after_answer(
         row["document_id"],
     )
     if not matches:
+        insufficient_msg = get_detective_insufficient_msg(session_lang)
         _add_turn(
             connection,
             session_id,
             "assistant",
             "insufficient",
-            INSUFFICIENT_MESSAGE,
+            insufficient_msg,
         )
         _save_state(connection, session_id, "insufficient", state)
         return
@@ -617,7 +722,7 @@ def _advance_after_answer(
     question = _next_technical_question(state, matches)
     if not question:
         unsafe_only = any(_is_unsafe(match["passage"]) for match in matches)
-        message = SAFETY_ESCALATION_MESSAGE if unsafe_only else INSUFFICIENT_MESSAGE
+        message = get_detective_safety_msg(session_lang) if unsafe_only else get_detective_insufficient_msg(session_lang)
         kind = "safety_escalation" if unsafe_only else "insufficient"
         _add_turn(connection, session_id, "assistant", kind, message)
         _save_state(

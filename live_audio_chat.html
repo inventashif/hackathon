@@ -133,6 +133,17 @@ checkAuth();
       <button id="micBtn" class="btn">Start Live Chat</button>
       <div class="status"><span id="dot" class="dot idle"></span><span id="statusText">Idle</span></div>
       <div class="meter" id="meter"></div>
+      <div style="display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 13px; color: #9aa4c7;">
+        <label for="voiceLangSelect" style="font-weight: 500;">Language:</label>
+        <select id="voiceLangSelect" onchange="changeVoiceLanguage(this.value)" style="background: #1c2340; color: #e6e9f2; border: 1px solid #263056; padding: 6px 10px; border-radius: 8px; font-size: 13px; cursor: pointer; outline: none;">
+          <option value="English">English</option>
+          <option value="Hindi">हिन्दी (Hindi)</option>
+          <option value="Spanish">Español (Spanish)</option>
+          <option value="German">Deutsch (German)</option>
+          <option value="French">Français (French)</option>
+          <option value="Japanese">日本語 (Japanese)</option>
+        </select>
+      </div>
     </div>
 
     <div class="field">
@@ -186,6 +197,25 @@ let playbackCtx = null;
 let micStream = null;
 let processor = null;
 let sourceNode = null;
+
+let currentVoiceLanguage = localStorage.getItem("nexus_language") || "English";
+
+function changeVoiceLanguage(lang) {
+  currentVoiceLanguage = lang;
+  localStorage.setItem("nexus_language", lang);
+  log(`Language switched to ${lang}.`, "system");
+  const sel = document.getElementById("voiceLangSelect");
+  if (sel) sel.value = lang;
+  if (ws && ws.readyState === 1) {
+    ws.close();
+    setTimeout(startLive, 300);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const sel = document.getElementById("voiceLangSelect");
+  if (sel) sel.value = currentVoiceLanguage;
+});
 
 const $ = (id) => document.getElementById(id);
 const logEl = $("log");
@@ -498,8 +528,9 @@ async function start() {
   }
 
   const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
-  const wsUrl = `${wsProtocol}//${location.host}${wsPath}`;
-  log("Connecting to Gemini Live...", "system");
+  const selectedLang = currentVoiceLanguage || "English";
+  const wsUrl = `${wsProtocol}//${location.host}${wsPath}?language=${encodeURIComponent(selectedLang)}`;
+  log("Connecting to Gemini Live (" + selectedLang + ")...", "system");
   setOrb("working");
   try {
     ws = new WebSocket(wsUrl);
@@ -525,6 +556,22 @@ async function start() {
     reconnectAttempts = 0;
     if (playbackCtx && playbackCtx.state === "suspended") playbackCtx.resume();
     // Stonic pattern: session setup handshake
+    const voiceInstruction = "You are an expert industrial voice assistant pairing with technicians on the shop floor. "
+      + `CRITICAL LANGUAGE REQUIREMENT: You MUST speak and respond strictly and exclusively in ${selectedLang} at all times. Every spoken response, question, confirmation, and procedure summary MUST be in ${selectedLang}. Never switch to English unless English is explicitly selected. `
+      + "INTERACTIVE OBSERVATIONAL & EVIDENCE GATHERING: "
+      + `If the technician's inquiry or statement is indirect, ambiguous, or lacks specific machine and symptom details (e.g. 'the motor stopped', 'it is making noise', 'the machine has an issue', 'something tripped', 'how do I fix this?'): `
+      + `DO NOT guess, assume a cause, or provide generic ungrounded advice. Immediately ask observational and evidence-gathering follow-up questions in ${selectedLang}: `
+      + "1. Ask for the exact machine name and model. "
+      + "2. Ask for specific sensory observations (sounds such as grinding/whistling/clicking, vibrations, excessive heat, burning odors, or fluid leaks). "
+      + "3. Ask what the machine was doing right when the anomaly occurred (e.g., accelerating, continuous running under peak load, idle). "
+      + "4. Ask for exact control panel evidence: what error code, alarm number, or LED warning pattern is visible on the HMI or drive display? "
+      + "STANDARD OPERATING PROCEDURE (SOP) GENERATION: "
+      + "When the operator asks to generate an SOP or step-by-step procedure: "
+      + "1. Verify whether the operator provided BOTH: (a) machine or equipment name, and (b) specific procedure, task, or fault symptom. "
+      + `2. If ANY of these details are missing, DO NOT call generate_sop yet. Explicitly ask the operator for the missing machine name or specific procedure details in ${selectedLang}. `
+      + `3. Once both details are provided, call the generate_sop tool (with language: '${selectedLang}'). The backend will trigger the text model to analyze manuals and synthesize the official SOP in ${selectedLang}. `
+      + `4. When generate_sop returns the result, concisely explain the procedure aloud in ${selectedLang}: state the SOP title, total steps, and crucial safety cautions.`;
+
     const setup = {
       setup: {
         model: `models/${model}`,
@@ -540,14 +587,7 @@ async function start() {
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: "You are an expert industrial voice assistant pairing with technicians on the shop floor. "
-              + "For questions about uploaded manuals, policies, or knowledge vault, use search_knowledge_base. "
-              + "STANDARD OPERATING PROCEDURE (SOP) GENERATION: "
-              + "When the operator asks to generate an SOP or step-by-step procedure: "
-              + "1. Verify whether the operator provided BOTH: (a) machine or equipment name, and (b) specific procedure, task, or fault symptom. "
-              + "2. If ANY of these details are missing, DO NOT call generate_sop yet. Explicitly ask the operator for the missing machine name or specific procedure details. "
-              + "3. Once both details are provided, call the generate_sop tool. The backend will trigger the text model to analyze manuals and synthesize the official SOP. "
-              + "4. When generate_sop returns the result, concisely explain the procedure aloud: state the SOP title, total steps, and crucial safety cautions."
+            text: voiceInstruction
           }]
         },
         tools: [{
@@ -572,7 +612,8 @@ async function start() {
                   machine_name: { type: "STRING", description: "Name or model of the machine/equipment (e.g. 'Haas CNC Lathe', 'Conveyor Belt C-102'). Required." },
                   procedure_name: { type: "STRING", description: "Specific procedure or task to perform (e.g. 'Belt tensioning and alignment', 'Spindle bearing replacement'). Required." },
                   error_code: { type: "STRING", description: "Optional error code or fault symptom." },
-                  expert_notes: { type: "STRING", description: "Optional operator notes or shop constraints." }
+                  expert_notes: { type: "STRING", description: "Optional operator notes or shop constraints." },
+                  language: { type: "STRING", description: "Language for the generated SOP (e.g. English, Hindi, Spanish, German, French, Japanese)." }
                 },
                 required: ["machine_name", "procedure_name"]
               }

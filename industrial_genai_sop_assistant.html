@@ -396,6 +396,20 @@
                 </button>
             </div>
 
+            <!-- Global Language Selector Dropdown -->
+            <div class="flex items-center space-x-1.5 bg-industrial-900 px-2.5 py-1.5 rounded-lg border border-industrial-700 text-xs text-slate-300" title="Select response language for Text & Voice models">
+                <i class="fa-solid fa-language text-industrial-accent"></i>
+                <label for="globalLanguageSelect" class="sr-only">Language</label>
+                <select id="globalLanguageSelect" onchange="changeGlobalLanguage(this.value)" class="bg-transparent text-white font-medium focus:outline-none cursor-pointer">
+                    <option value="English" class="bg-industrial-800 text-white">English</option>
+                    <option value="Hindi" class="bg-industrial-800 text-white">हिन्दी (Hindi)</option>
+                    <option value="Spanish" class="bg-industrial-800 text-white">Español (Spanish)</option>
+                    <option value="German" class="bg-industrial-800 text-white">Deutsch (German)</option>
+                    <option value="French" class="bg-industrial-800 text-white">Français (French)</option>
+                    <option value="Japanese" class="bg-industrial-800 text-white">日本語 (Japanese)</option>
+                </select>
+            </div>
+
             <!-- User Menu -->
             <div id="userActions" class="flex items-center space-x-3 border-l border-industrial-700 pl-4">
                 <button onclick="openInvitePanel()" class="bg-industrial-700 hover:bg-industrial-600 text-xs px-3 py-1.5 rounded border border-industrial-600 transition">
@@ -1757,7 +1771,8 @@
                 machine_name: machine,
                 machine_model: model,
                 error_code: errorCode,
-                initial_symptom: symptom
+                initial_symptom: symptom,
+                language: getGlobalLanguage()
             };
             if (docVal) body.document_id = Number(docVal);
             try {
@@ -2691,11 +2706,39 @@
             }
         }
 
+        function getGlobalLanguage() {
+            return localStorage.getItem('nexus_language') || 'English';
+        }
+
+        function getGlobalLanguageCode() {
+            const lang = getGlobalLanguage().toLowerCase();
+            if (lang.includes('hindi') || lang === 'hi') return 'hi-IN';
+            if (lang.includes('spanish') || lang === 'es') return 'es-ES';
+            if (lang.includes('german') || lang === 'de') return 'de-DE';
+            if (lang.includes('french') || lang === 'fr') return 'fr-FR';
+            if (lang.includes('japanese') || lang === 'ja') return 'ja-JP';
+            return 'en-US';
+        }
+
+        function changeGlobalLanguage(lang) {
+            localStorage.setItem('nexus_language', lang);
+            const el = document.getElementById('globalLanguageSelect');
+            if (el) el.value = lang;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const saved = getGlobalLanguage();
+            const el = document.getElementById('globalLanguageSelect');
+            if (el) el.value = saved;
+        });
+
         // Text-to-Speech (TTS) Read Aloud
         function speakText(text) {
             if (!ttsSynth) return;
             ttsSynth.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
+            const langCode = getGlobalLanguageCode();
+            if (langCode) utterance.lang = langCode;
             utterance.rate = 1.0;
             utterance.pitch = 1.0;
             ttsSynth.speak(utterance);
@@ -3096,11 +3139,22 @@
                     `;
                 }
 
+                const isClarification = msg.content && (
+                    msg.content.includes('Machine & Model') ||
+                    msg.content.includes('Sensory Observations') ||
+                    msg.content.includes('अवलोकन') ||
+                    msg.content.includes('Observaciones') ||
+                    msg.content.includes('Sensorische Beobachtungen')
+                );
+
                 const panel = document.createElement('section');
                 panel.className = 'flex-1 rounded-xl border border-industrial-700 bg-industrial-800 p-4 space-y-3 shadow';
                 panel.innerHTML = `
                     <div class="flex items-center justify-between border-b border-industrial-700/60 pb-2">
-                        <h3 class="text-xs font-bold text-slate-100 uppercase tracking-wide font-mono">Assistant Reply</h3>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-xs font-bold text-slate-100 uppercase tracking-wide font-mono">Assistant Reply</h3>
+                            ${isClarification ? '<span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono px-2 py-0.5 rounded-full"><i class="fa-solid fa-clipboard-question mr-1"></i>Diagnostic Evidence Required</span>' : ''}
+                        </div>
                         <span class="text-[10px] text-slate-400 font-mono">${formatTime(msg.created_at)}</span>
                     </div>
                     ${aiProblemHtml}
@@ -3645,7 +3699,8 @@
             const payload = {
                 query: queryText,
                 session_id: currentChatSessionId || sharedSessionId,
-                generate_sop: Boolean(isGenerateSop)
+                generate_sop: Boolean(isGenerateSop),
+                language: getGlobalLanguage()
             };
             if (selectedDocId !== null) payload.document_id = selectedDocId;
             if (currentUploadedImage) payload.image = currentUploadedImage;

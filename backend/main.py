@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
 import math
 import os
 import asyncio
@@ -29,6 +30,7 @@ from backend.stemmer import stem as _stemmer
 from backend import auth, detective, ingest, sop
 
 
+logger = logging.getLogger("nexus_sop")
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 KNOWLEDGE_DIR = ROOT / "data" / "knowledge"
@@ -293,6 +295,208 @@ def is_operational_request(query: str) -> bool:
     return False
 
 
+SUPPORTED_LANGUAGES: dict[str, str] = {
+    "en": "English",
+    "english": "English",
+    "hi": "Hindi",
+    "hindi": "Hindi",
+    "es": "Spanish",
+    "spanish": "Spanish",
+    "de": "German",
+    "german": "German",
+    "fr": "French",
+    "french": "French",
+    "ja": "Japanese",
+    "japanese": "Japanese",
+}
+
+
+def normalize_language(lang: str | None) -> str:
+    """Normalize language code or string to canonical title (e.g. 'Hindi', 'English')."""
+    if not lang:
+        return "English"
+    cleaned = str(lang).strip().lower()
+    return SUPPORTED_LANGUAGES.get(cleaned, lang.strip().capitalize() or "English")
+
+
+CLARIFICATION_PROMPTS: dict[str, str] = {
+    "English": (
+        "To help diagnose this issue accurately from approved manuals, please provide specific observations and evidence:\n\n"
+        "1. **Machine & Model Identification:** Which exact machine and model number are you working on? (e.g., Siemens SINAMICS G120C, Fagor CNC 8055)\n"
+        "2. **Sensory Observations:**\n"
+        "   - What abnormal noises do you hear? (e.g., screeching, humming, knocking, grinding)\n"
+        "   - Do you observe excessive vibration, unusual heat buildup, smoke, or fluid leaks?\n"
+        "3. **Operational Context:** What was the equipment doing right when the anomaly occurred (e.g., accelerating, continuous running under peak load, cold starting, or idling)?\n"
+        "4. **Control Panel / HMI Evidence:** What exact fault/alarm code, message, or indicator LED pattern is shown on the display? (e.g., F30001, Alarm 2000)"
+    ),
+    "Hindi": (
+        "स्वीकृत मैन्युअल के आधार पर इस समस्या का सटीक निदान करने के लिए, कृपया कुछ विशिष्ट अवलोकन और साक्ष्य प्रदान करें:\n\n"
+        "1. **मशीन और मॉडल पहचान:** आप किस विशिष्ट मशीन और मॉडल पर काम कर रहे हैं? (उदा. Siemens SINAMICS G120C, Fagor CNC 8055)\n"
+        "2. **भौतिक अवलोकन (Sensory Observations):**\n"
+        "   - क्या कोई असामान्य आवाज़ (खटखटाना, सीटी, घर्षण) सुनाई दे रही है?\n"
+        "   - क्या अत्यधिक कंपन (vibration), असामान्य गर्मी, धुआं या तरल रिसाव (leak) दिखाई दे रहा है?\n"
+        "3. **परिचालन स्थिति (Operational Context):** समस्या शुरू होने से ठीक पहले मशीन क्या कर रही थी (त्वरण/acceleration, सामान्य लोड, या स्थिर/idle)?\n"
+        "4. **कंट्रोल पैनल साक्ष्य (Panel Evidence):** डिस्प्ले या HMI पर क्या विशिष्ट फॉल्ट/अलार्म कोड (उदा. F30001, Error 2000) या चेतावनी लाइट प्रदर्शित है?"
+    ),
+    "Spanish": (
+        "Para diagnosticar este problema con precisión a partir de los manuales aprobados, proporcione observaciones y evidencias específicas:\n\n"
+        "1. **Identificación de máquina y modelo:** ¿En qué máquina y modelo específico está trabajando? (ej. Siemens SINAMICS G120C, Fagor CNC 8055)\n"
+        "2. **Observaciones sensoriales:**\n"
+        "   - ¿Qué ruidos anormales escucha? (ej. rechinidos, zumbidos, golpeteos)\n"
+        "   - ¿Detecta vibración excesiva, calor inusual, humo o fuga de fluidos?\n"
+        "3. **Contexto operativo:** ¿Qué estaba haciendo el equipo justo cuando ocurrió la falla (acelerando, a plena carga o en ralentí)?\n"
+        "4. **Evidencia del panel de control:** ¿Qué código de falla, mensaje de alarma o luces de advertencia se muestran en el HMI o pantalla? (ej. F30001, Error 2000)"
+    ),
+    "German": (
+        "Um dieses Problem anhand der freigegebenen Handbücher genau zu diagnostizieren, geben Sie bitte spezifische Beobachtungen und Nachweise an:\n\n"
+        "1. **Maschinen- & Modellidentifikation:** An welcher genauen Maschine und welchem Modell arbeiten Sie? (z. B. Siemens SINAMICS G120C, Fagor CNC 8055)\n"
+        "2. **Sensorische Beobachtungen:**\n"
+        "   - Welche ungewöhnlichen Geräusche stellen Sie fest? (z. B. Schleifen, Summen, Klopfen)\n"
+        "   - Gibt es übermäßige Vibrationen, Überhitzung, Rauch oder Flüssigkeitsaustritt?\n"
+        "3. **Betriebszustand:** Was tat die Maschine unmittelbar vor dem Fehler (z. B. Hochlauf, Volllast oder Leerlauf)?\n"
+        "4. **Nachweise auf dem Bedienfeld:** Welcher genaue Fehlercode, Alarm oder welche LED-Anzeige wird auf dem Display/HMI angezeigt? (z. B. F30001, Fehler 2000)"
+    ),
+    "French": (
+        "Pour diagnostiquer précisément ce problème à partir des manuels approuvés, veuillez fournir des observations et preuves spécifiques :\n\n"
+        "1. **Identification de la machine et du modèle :** Sur quelle machine et quel modèle précis travaillez-vous ? (ex. Siemens SINAMICS G120C, Fagor CNC 8055)\n"
+        "2. **Observations sensorielles :**\n"
+        "   - Quels bruits anormaux entendez-vous ? (ex. grincements, bourdonnements, cliquetis)\n"
+        "   - Constatez-vous des vibrations excessives, une surchauffe, de la fumée ou une fuite de liquide ?\n"
+        "3. **Contexte opérationnel :** Que faisait l'équipement juste avant l'incident (accélération, pleine charge ou veille) ?\n"
+        "4. **Preuves du panneau de contrôle :** Quel code de défaut, message d'alarme ou voyant s'affiche sur l'IHM ou l'écran ? (ex. F30001, Erreur 2000)"
+    ),
+    "Japanese": (
+        "承認されたマニュアルに基づいてこの問題を正確に診断するために、具体的な観察事項と証拠を提供してください：\n\n"
+        "1. **機械とモデルの特定:** 対象の機械名と型番・モデルは何ですか？ (例: Siemens SINAMICS G120C, Fagor CNC 8055)\n"
+        "2. **感覚的な観察事項:**\n"
+        "   - どのような異音（きしみ音、うなり音、打撃音）が聞こえますか？\n"
+        "   - 過度な振動、異常な発熱、煙、または油・液漏れはありますか？\n"
+        "3. **動作状況:** 異常が発生した直前、機械はどのような動作をしていましたか？ (加速中、全負荷運転中、アイドリング中など)\n"
+        "4. **操作パネルの表示・証拠:** HMIまたは操作パネルに表示されている正確なエラーコードやアラームメッセージは何ですか？ (例: F30001, Error 2000)"
+    ),
+}
+
+CONVERSATIONAL_REPLIES: dict[str, str] = {
+    "English": "Hello! I am NexusSOP, your industrial SOP and knowledge assistant. How can I help you today?",
+    "Hindi": "नमस्ते! मैं NexusSOP हूँ, आपका औद्योगिक SOP और ज्ञान सहायक। आज मैं आपकी क्या सहायता कर सकता हूँ?",
+    "Spanish": "¡Hola! Soy NexusSOP, su asistente industrial de conocimiento y SOP. ¿En qué puedo ayudarle hoy?",
+    "German": "Hallo! Ich bin NexusSOP, Ihr industrieller SOP- und Wissensassistent. Wie kann ich Ihnen heute helfen?",
+    "French": "Bonjour ! Je suis NexusSOP, votre assistant industriel de SOP et de connaissances. Comment puis-je vous aider aujourd'hui ?",
+    "Japanese": "こんにちは！NexusSOPです。産業用SOPおよびナレッジアシスタントです。本日はどのようなご用件でしょうか？",
+}
+
+INSUFFICIENT_EVIDENCE_REPLIES: dict[str, str] = {
+    "English": "I couldn't find enough evidence in the approved knowledge base to answer that. Upload a relevant source, have it reviewed, then ask again.",
+    "Hindi": "मुझे इसका उत्तर देने के लिए स्वीकृत ज्ञानकोष में पर्याप्त साक्ष्य नहीं मिले। कृपया संबंधित स्रोत अपलोड करें, उसकी समीक्षा करवाएं, और फिर पूछें।",
+    "Spanish": "No pude encontrar suficiente evidencia en la base de conocimientos aprobada para responder eso. Cargue una fuente relevante, haga que la revisen y vuelva a preguntar.",
+    "German": "In der freigegebenen Wissensdatenbank konnten nicht genügend Nachweise gefunden werden, um dies zu beantworten. Bitte laden Sie ein relevantes Dokument hoch, lassen Sie es prüfen und fragen Sie erneut.",
+    "French": "Je n'ai pas trouvé suffisamment de preuves dans la base de connaissances approuvée pour répondre. Veuillez télécharger un document pertinent, le faire valider et réessayer.",
+    "Japanese": "承認されたナレッジベース内に回答に十分な証拠が見つかりませんでした。関連するマニュアルをアップロードし、承認後に再度質問してください。",
+}
+
+OPERATIONAL_REFUSAL_REPLIES: dict[str, str] = {
+    "English": "I can't provide equipment operating, repair, isolation, or troubleshooting instructions. Stop and consult the current approved site SOP and a qualified supervisor.",
+    "Hindi": "मैं उपकरण संचालन, मरम्मत, अलगाव या समस्या निवारण निर्देश सीधे प्रदान नहीं कर सकता। कृपया रुकें और वर्तमान स्वीकृत साइट SOP और एक योग्य पर्यवेक्षक से परामर्श करें।",
+    "Spanish": "No puedo proporcionar instrucciones directas de operación, reparación, aislamiento o solución de problemas del equipo. Deténgase y consulte el SOP aprobado del sitio y a un supervisor calificado.",
+    "German": "Ich kann keine Anweisungen zur Bedienung, Reparatur, Freischaltung oder Fehlerbehebung von Geräten erteilen. Bitte stoppen Sie und konsultieren Sie die freigegebene SOP des Werks sowie einen qualifizierten Vorgesetzten.",
+    "French": "Je ne peux pas fournir directement d'instructions de fonctionnement, de réparation, d'isolation ou de dépannage d'équipement. Arrêtez-vous et consultez la SOP approuvée du site et un superviseur qualifié.",
+    "Japanese": "装置の操作、修理、遮断、またはトラブルシューティング手順を直接指示することはできません。作業を中止し、承認された現場のSOPおよび有資格の管理者に相談してください。",
+}
+
+VOICE_MISSING_DETAILS_PROMPTS: dict[str, str] = {
+    "English": "Please specify the {missing} so I can search the manual and generate the SOP.",
+    "Hindi": "कृपया {missing} बताएं ताकि मैं मैन्युअल में खोज कर सकूं और SOP तैयार कर सकूं।",
+    "Spanish": "Por favor especifique {missing} para que pueda buscar en el manual y generar el SOP.",
+    "German": "Bitte geben Sie {missing} an, damit ich das Handbuch durchsuchen und die SOP erstellen kann.",
+    "French": "Veuillez préciser {missing} afin que je puisse rechercher dans le manuel et générer la SOP.",
+    "Japanese": "マニュアルを検索してSOPを生成するために、{missing}を指定してください。",
+}
+
+LOCALIZED_FIELD_NAMES: dict[str, dict[str, str]] = {
+    "Hindi": {
+        "machine/equipment name": "मशीन/उपकरण का नाम",
+        "specific maintenance procedure or symptom": "विशिष्ट रखरखाव प्रक्रिया या लक्षण",
+    },
+    "Spanish": {
+        "machine/equipment name": "el nombre de la máquina/equipo",
+        "specific maintenance procedure or symptom": "el procedimiento específico o síntoma",
+    },
+    "German": {
+        "machine/equipment name": "den Maschinen-/Gerätenamen",
+        "specific maintenance procedure or symptom": "das spezifische Wartungsverfahren oder Symptom",
+    },
+    "French": {
+        "machine/equipment name": "le nom de la machine/équipement",
+        "specific maintenance procedure or symptom": "la procédure spécifique ou le symptôme",
+    },
+    "Japanese": {
+        "machine/equipment name": "機械/装置名",
+        "specific maintenance procedure or symptom": "具体的なメンテナンス手順または症状",
+    },
+}
+
+INDIRECT_SYMPTOM_PATTERN = re.compile(
+    r"\b("
+    r"nois\w*|sound\w*|screech\w*|squeal\w*|grind\w*|hum\w*|knock\w*|rattl\w*|whistl\w*|"
+    r"vibrat\w*|shak\w*|oscillat\w*|"
+    r"overheat\w*|heat\w*|hot|warm|temperat\w*|cooling\s+(?:loss|fail\w*|fault\w*|issue\w*|problem\w*)|"
+    r"smok\w*|burn\w*|burnt|odor\w*|smell\w*|"
+    r"leak\w*|fluid\w*|oil\w*|spill\w*|"
+    r"trip\w*|shutdown|shut\s*down|"
+    r"stop\w*|stuck|jam\w*|slow|frozen|fail\w*|"
+    r"abnormal\w*|anomal\w*|weird|strange|wrong|"
+    r"troubl\w*|issue\w*|problem\w*|broken|fault\w*|error\w*|alarm\w*|warning\w*|"
+    r"won'?t\s+(?:start|run|move|turn|stop)|not\s+(?:working|running|starting|moving|turning)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+INDIRECT_QUESTION_PATTERN = re.compile(
+    r"\b("
+    r"why\s+(is|did|does|won'?t|has)|"
+    r"what('s|\s+is)\s+(wrong|happening|the\s+problem|the\s+issue)|"
+    r"how\s+do\s+i\s+(fix|troubleshoot|solve|handle|deal\s+with)|"
+    r"what\s+should\s+i\s+do|"
+    r"help(\s+me)?\s+(with|troubleshoot|fix)|"
+    r"can\s+you\s+(fix|help|diagnose)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_indirect_query(
+    text: str,
+    machine_name: str | None = None,
+    error_code: str | None = None,
+    document_id: int | None = None,
+) -> bool:
+    """Detect whether a query is an indirect symptom or vague troubleshooting inquiry
+
+    lacking required diagnostic evidence (specific machine model or exact fault code).
+    """
+    clean = text.strip()
+    if not clean:
+        return False
+    if error_code and error_code.strip():
+        return False
+    if machine_name and len(machine_name.strip()) > 3:
+        if machine_name.strip().lower() not in {"machine", "equipment", "device", "unit", "system", "tool"}:
+            return False
+    if document_id is not None:
+        return False
+    if GREETING_PATTERN.search(clean):
+        return False
+    if is_operational_request(clean):
+        return False
+    if re.search(r"^\s*(what|which)\b.*\b(require|say|state|specify|describe|explain|mean|protocol|policy|standard|spec|guide|manual)\b", clean, re.IGNORECASE):
+        return False
+    if KB_LOOKUP_QUESTION.search(clean) and KB_TOPIC_REFERENCE.search(clean):
+        return False
+    if re.search(r"\b(bypass\s+the\s+interlock|lock\s*out\s+valve|de-energize\s+this\s+line|isolate\s+the\s+line)\b", clean, re.IGNORECASE):
+        return False
+    return bool(INDIRECT_SYMPTOM_PATTERN.search(clean) or INDIRECT_QUESTION_PATTERN.search(clean))
+
+
 class EscalationRequest(BaseModel):
     query: str = Field(min_length=2, max_length=2000)
     reason: str = Field(min_length=3, max_length=500)
@@ -300,6 +504,7 @@ class EscalationRequest(BaseModel):
 
 class VoiceKnowledgeRequest(BaseModel):
     query: str = Field(min_length=2, max_length=2000)
+    language: str | None = "English"
 
 
 class VoiceGenerateSopRequest(BaseModel):
@@ -308,6 +513,7 @@ class VoiceGenerateSopRequest(BaseModel):
     error_code: str = ""
     expert_notes: str = ""
     session_id: str = ""
+    language: str | None = "English"
 
 
 class SessionRequest(BaseModel):
@@ -326,6 +532,7 @@ class ChatRequest(BaseModel):
     error_code: str | None = None
     expert_notes: str | None = None
     module_name: str | None = None
+    language: str | None = "English"
 
 
 class CreateChatSessionRequest(BaseModel):
@@ -1077,7 +1284,9 @@ async def call_active_llm(
 
 
 def is_mock_test_active() -> bool:
-    """Check if pytest mock LLM client is monkeypatched."""
+    """Check if pytest mock LLM client is monkeypatched or pytest is executing without live flag."""
+    if "PYTEST_CURRENT_TEST" in os.environ and not os.environ.get("RUN_LIVE_LLM_TESTS"):
+        return True
     try:
         client_cls = getattr(httpx, "AsyncClient", None)
         return bool(client_cls and getattr(client_cls, "__name__", "") == "FakeClient")
@@ -1277,13 +1486,29 @@ async def generate_answer(
     image: str | None = None,
     audio: str | None = None,
     conversational: bool = False,
+    language: str = "English",
 ) -> tuple[str, str]:
+    lang_name = normalize_language(language)
     config = get_active_model_config()
     if not config["has_active_key"]:
         if conversational:
-            return CONVERSATIONAL_REPLY, "conversational-extractive"
+            reply = CONVERSATIONAL_REPLIES.get(lang_name, CONVERSATIONAL_REPLIES["English"])
+            return reply, "conversational-extractive"
+        if lang_name != "English":
+            notices = {
+                "Hindi": "पुनर्प्राप्त स्रोत उद्धरण नीचे दिखाए गए हैं। यह प्रणाली कार्य निर्देशों को स्वतः उत्पन्न या मान्य नहीं करती है।",
+                "Spanish": "Los extractos de las fuentes recuperadas se muestran a continuación. Este sistema no genera ni valida instrucciones de trabajo.",
+                "German": "Die abgerufenen Quellenauszüge sind unten aufgeführt. Dieses System erstellt oder validiert keine Arbeitsanweisungen.",
+                "French": "Les extraits des sources récupérées sont présentés ci-dessous. Ce système ne génère ni ne valide d'instructions de travail.",
+                "Japanese": "取得された引用抜粋は以下に表示されています。このシステムは作業指示書を直接生成または検証しません。",
+            }
+            return notices.get(lang_name, "Retrieved source excerpts are shown below. This system does not generate or validate work instructions."), "extractive"
         return "Retrieved source excerpts are shown below. This system does not generate or validate work instructions.", "extractive"
-    fallback = "The model service was unavailable or returned no answer. Source excerpts are shown below; please retry."
+    fallback = (
+        f"The model service was unavailable or returned no answer. Source excerpts are shown below; please retry."
+        if lang_name == "English"
+        else f"सेवा अनुपलब्ध थी। कृपया पुनः प्रयास करें।"
+    )
 
     source_context = "\n\n".join(
         f"[{citation['reference_id']}] {citation['document_name']} ({citation['source']}):\n{citation['passage']}"
@@ -1319,6 +1544,13 @@ async def generate_answer(
             "Cite every factual statement with the exact reference token, such as [S1], and cite every relevant excerpt. "
             "You may also receive an image or audio clip; describe or transcribe what you observe and relate it to the retrieved sources when relevant. "
             "The source may be synthetic and must never be described as an approved plant SOP."
+        )
+
+    if lang_name != "English":
+        system_content += (
+            f"\n\nCRITICAL LANGUAGE MANDATE: You MUST formulate your ENTIRE response strictly and exclusively in {lang_name}. "
+            f"All explanations, section titles, steps, cautions, Mermaid diagram labels, and summaries MUST be written in {lang_name}. "
+            f"Do NOT answer in English unless the user explicitly requested English."
         )
 
     user_content = _build_user_content(query, source_context, image, audio)
@@ -1691,6 +1923,7 @@ async def execute_voice_generate_sop(
     error_code: str = "",
     expert_notes: str = "",
     session_id: str = "",
+    language: str = "English",
 ) -> dict[str, Any]:
     """Analyze approved industrial manuals with the text model and generate a step-by-step SOP.
 
@@ -1699,6 +1932,7 @@ async def execute_voice_generate_sop(
     """
     cleaned_machine = machine_name.strip()
     cleaned_procedure = procedure_name.strip()
+    lang = normalize_language(language)
 
     generic_placeholders = {"unknown", "n/a", "none", "machine", "equipment", "procedure", "sop", "task", "something", ""}
     missing: list[str] = []
@@ -1708,11 +1942,12 @@ async def execute_voice_generate_sop(
         missing.append("specific maintenance procedure or symptom")
 
     if missing:
-        prompt_question = (
-            f"Please specify the {' and '.join(missing)} so I can search the manual and generate the SOP."
-            if len(missing) == 2
-            else f"Please specify the {missing[0]} for this SOP."
-        )
+        field_map = LOCALIZED_FIELD_NAMES.get(lang, {})
+        localized_missing = [field_map.get(m, m) for m in missing]
+        joined_sep = " तथा " if lang == "Hindi" else (" y " if lang == "Spanish" else (" und " if lang == "German" else " and "))
+        joined_missing = joined_sep.join(localized_missing)
+        prompt_template = VOICE_MISSING_DETAILS_PROMPTS.get(lang, VOICE_MISSING_DETAILS_PROMPTS["English"])
+        prompt_question = prompt_template.format(missing=joined_missing)
         return {
             "status": "missing_details",
             "missing_fields": missing,
@@ -1806,6 +2041,7 @@ async def execute_voice_generate_sop(
         expert_notes=expert_notes,
         prior_references=prior_references,
         expert_learnings=expert_learnings,
+        language=lang,
     )
 
     citations = _build_citations(all_sop_matches)
@@ -1815,7 +2051,7 @@ async def execute_voice_generate_sop(
 
     # Fallback to smart extractive extraction if needed
     if sop_data.get("abstain") and all_sop_matches:
-        sop_data = sop.extract_steps_from_passages(query, all_sop_matches, assets)
+        sop_data = sop.extract_steps_from_passages(query, all_sop_matches, assets, language=lang)
         sop_data = sop.finalize_sop_answer(sop_data, valid_citation_ids, valid_figure_ids, f_map=f_map)
 
     sop_data = sop.attach_part_visuals(
@@ -1883,11 +2119,38 @@ async def execute_voice_generate_sop(
     steps_count = len(sop_data.get("steps", []))
     cautions = [s["caution"] for s in sop_data.get("steps", []) if s.get("caution")]
     caution_summary = f" Crucial safety warning: {cautions[0]}." if cautions else ""
-    spoken_summary = (
-        f"I have analyzed the manual using the engineering text model and generated a {steps_count}-step SOP "
-        f"for {sop_data.get('title', cleaned_procedure)}.{caution_summary} "
-        f"The complete step-by-step SOP card and PDF export are now ready on your screen."
-    )
+
+    if lang == "Hindi":
+        spoken_summary = (
+            f"मैंने मैन्युअल का विश्लेषण करके {sop_data.get('title', cleaned_procedure)} के लिए {steps_count}-चरणीय SOP तैयार किया है।{caution_summary} "
+            f"पूरी SOP प्रक्रिया और PDF अब आपकी स्क्रीन पर तैयार है।"
+        )
+    elif lang == "Spanish":
+        spoken_summary = (
+            f"He analizado el manual y he generado un SOP de {steps_count} pasos para {sop_data.get('title', cleaned_procedure)}.{caution_summary} "
+            f"El procedimiento completo y la descarga en PDF ya están listos en su pantalla."
+        )
+    elif lang == "German":
+        spoken_summary = (
+            f"Ich habe das Handbuch analysiert und eine {steps_count}-stufige SOP für {sop_data.get('title', cleaned_procedure)} erstellt.{caution_summary} "
+            f"Die vollständige SOP und der PDF-Export stehen jetzt auf Ihrem Bildschirm bereit."
+        )
+    elif lang == "French":
+        spoken_summary = (
+            f"J'ai analysé le manuel et généré une SOP en {steps_count} étapes pour {sop_data.get('title', cleaned_procedure)}.{caution_summary} "
+            f"La fiche complète et l'export PDF sont prêts sur votre écran."
+        )
+    elif lang == "Japanese":
+        spoken_summary = (
+            f"マニュアルを分析し、{sop_data.get('title', cleaned_procedure)}の{steps_count}ステップのSOPを作成しました。{caution_summary} "
+            f"完全な手順カードとPDF出力が画面に表示されています。"
+        )
+    else:
+        spoken_summary = (
+            f"I have analyzed the manual using the engineering text model and generated a {steps_count}-step SOP "
+            f"for {sop_data.get('title', cleaned_procedure)}.{caution_summary} "
+            f"The complete step-by-step SOP card and PDF export are now ready on your screen."
+        )
 
     return {
         "status": "success",
@@ -1924,12 +2187,14 @@ async def handle_live_tool_call(upstream: Any, tool_call: dict[str, Any], sessio
             procedure_name = str(args.get("procedure_name", "")).strip()
             error_code = str(args.get("error_code", "")).strip()
             expert_notes = str(args.get("expert_notes", "")).strip()
+            tool_lang = str(args.get("language", "")).strip() or "English"
             result = await execute_voice_generate_sop(
                 machine_name=machine_name,
                 procedure_name=procedure_name,
                 error_code=error_code,
                 expert_notes=expert_notes,
                 session_id=session_id,
+                language=tool_lang,
             )
         else:
             result = {"error": f"Unknown tool: {name}"}
@@ -2102,6 +2367,7 @@ async def api_voice_generate_sop(request: VoiceGenerateSopRequest) -> dict[str, 
         error_code=request.error_code,
         expert_notes=request.expert_notes,
         session_id=request.session_id,
+        language=request.language or "English",
     )
 
 
@@ -2319,6 +2585,7 @@ async def chat(
 ) -> dict[str, Any]:
     """Chat endpoint with SOP generation for procedure requests."""
     query = request.query.strip()
+    lang_name = normalize_language(request.language)
 
     # Get or use shared session
     session_id = request.session_id
@@ -2366,7 +2633,8 @@ async def chat(
     is_procedure_request = (
         bool(request.generate_sop)
         or (
-            (is_operational_request(query) or bool(INSTRUCTION_REQUEST.search(query)) or bool(PROCEDURE_REQUEST.search(query)))
+            (bool(INSTRUCTION_REQUEST.search(query)) or bool(PROCEDURE_REQUEST.search(query)) or is_operational_request(query))
+            and not bool(STRONG_OPERATIONAL_INTENT.search(query))
             and not bool(GREETING_PATTERN.search(query))
             and not bool(KB_LOOKUP_QUESTION.search(query))
         )
@@ -2507,6 +2775,7 @@ async def chat(
                 expert_notes=request.expert_notes,
                 prior_references=prior_references,
                 expert_learnings=expert_learnings,
+                language=lang_name,
             )
 
             valid_citation_ids = {c["reference_id"] for c in citations}
@@ -2516,7 +2785,7 @@ async def chat(
             # If user explicitly requested Generate SOP and LLM or citation gate abstained,
             # construct an evidence-grounded procedure directly from the retrieved passages
             if sop_data.get("abstain") and request.generate_sop and all_sop_matches:
-                sop_data = sop.extract_steps_from_passages(query, all_sop_matches, assets)
+                sop_data = sop.extract_steps_from_passages(query, all_sop_matches, assets, language=lang_name)
                 sop_data = sop.finalize_sop_answer(sop_data, valid_citation_ids, valid_figure_ids, f_map=f_map)
 
             sop_data = sop.attach_part_visuals(
@@ -2653,27 +2922,48 @@ async def chat(
                 log_session_message(session_id, "assistant", rendered_steps, "text", user_id=user.id, sop_id=sop_id)
                 return response
 
-    # Original chat logic (refusal for strong operational, regular answer otherwise)
+    # Operational refusal check (refusal for strong operational, regular answer otherwise)
     if is_operational_request(query) and not bool(request.generate_sop):
+        refusal_text = OPERATIONAL_REFUSAL_REPLIES.get(lang_name, OPERATIONAL_REFUSAL_REPLIES["English"])
         response = {
             "grounded": False,
             "abstained": True,
             "reason": "Operational or safety-critical intent requires an approved site procedure and qualified human review.",
-            "answer": "I can't provide equipment operating, repair, isolation, or troubleshooting instructions. Stop and consult the current approved site SOP and a qualified supervisor.",
+            "answer": refusal_text,
             "citations": [],
             "retrieval_score": 0.0,
             "rag_strategy": ai_intent,
             "session_id": session_id,
+            "language": lang_name,
         }
         log_query(query, False, None, 0.0, mode="refusal")
         log_session_message(session_id, "assistant", response["answer"], "text", user_id=user.id)
+        return response
+
+    # Check if query is indirect or lacks required diagnostic evidence
+    if is_indirect_query(query, request.machine_name, request.error_code, request.document_id):
+        clarification_text = CLARIFICATION_PROMPTS.get(lang_name, CLARIFICATION_PROMPTS["English"])
+        log_query(query, False, None, 0.0, mode="clarification")
+        response = {
+            "grounded": False,
+            "abstained": False,
+            "needs_clarification": True,
+            "reason": "Query is indirect or lacks required diagnostic evidence (machine model, sensory observations, or error code).",
+            "answer": clarification_text,
+            "citations": [],
+            "retrieval_score": 0.0,
+            "rag_strategy": ai_intent,
+            "session_id": session_id,
+            "language": lang_name,
+        }
+        log_session_message(session_id, "assistant", clarification_text, "text", user_id=user.id)
         return response
 
     is_greeting = bool(GREETING_PATTERN.search(query))
 
     if is_greeting:
         answer, generation_mode = await generate_answer(
-            query, citations, image=request.image, audio=request.audio, conversational=True
+            query, citations, image=request.image, audio=request.audio, conversational=True, language=lang_name
         )
         top_score = citations[0]["score"] if citations else 0.0
         top_doc = citations[0]["document_id"] if citations else None
@@ -2687,6 +2977,7 @@ async def chat(
             "retrieval_score": top_score,
             "rag_strategy": ai_intent,
             "session_id": session_id,
+            "language": lang_name,
         }
         log_session_message(session_id, "assistant", answer, "text", user_id=user.id)
         return response
@@ -2698,6 +2989,7 @@ async def chat(
         or citations[0]["score"] < MIN_RETRIEVAL_SCORE
     )
     if low_evidence and not has_media:
+        insufficient_text = INSUFFICIENT_EVIDENCE_REPLIES.get(lang_name, INSUFFICIENT_EVIDENCE_REPLIES["English"])
         log_query(
             query, False, None, citations[0]["score"] if citations else 0.0, mode="abstained"
         )
@@ -2705,11 +2997,12 @@ async def chat(
             "grounded": False,
             "abstained": True,
             "reason": "No sufficiently relevant passage was found in the approved documents.",
-            "answer": "I couldn't find enough evidence in the approved knowledge base to answer that. Upload a relevant source, have it reviewed, then ask again.",
+            "answer": insufficient_text,
             "citations": [],
             "retrieval_score": citations[0]["score"] if citations else 0.0,
             "rag_strategy": ai_intent,
             "session_id": session_id,
+            "language": lang_name,
         }
         log_session_message(session_id, "assistant", response["answer"], "text", user_id=user.id)
         return response
@@ -2717,7 +3010,7 @@ async def chat(
     top_score = citations[0]["score"] if citations else 0.0
     top_doc = citations[0]["document_id"] if citations else None
     answer, generation_mode = await generate_answer(
-        query, citations, image=request.image, audio=request.audio
+        query, citations, image=request.image, audio=request.audio, language=lang_name
     )
     log_query(query, True, top_doc, top_score)
     response = {
@@ -2729,6 +3022,7 @@ async def chat(
         "retrieval_score": top_score,
         "rag_strategy": ai_intent,
         "session_id": session_id,
+        "language": lang_name,
     }
     log_session_message(session_id, "assistant", answer, "text", user_id=user.id)
     return response

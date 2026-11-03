@@ -178,6 +178,7 @@ def extract_steps_from_passages(
     query: str,
     passages: list[dict[str, Any]],
     assets: list[dict[str, Any]],
+    language: str = "English",
 ) -> dict[str, Any]:
     """Smart extractive procedure synthesizer for offline / fallback SOP generation."""
     steps = []
@@ -507,6 +508,7 @@ async def build_sop_from_passages(
     expert_notes: str | None = None,
     prior_references: list[dict[str, Any]] | None = None,
     expert_learnings: list[dict[str, Any]] | None = None,
+    language: str = "English",
 ) -> dict[str, Any]:
     """Generate an authoritative, step-by-step SOP from retrieved passages and assets.
 
@@ -515,6 +517,7 @@ async def build_sop_from_passages(
     from backend import main
     cfg = main.get_active_model_config()
     has_key = cfg.get("has_active_key", False)
+    norm_lang = main.normalize_language(language)
 
     # Build asset mapping for F1, F2... and integer IDs
     f_map: dict[Any, int] = {}
@@ -526,7 +529,7 @@ async def build_sop_from_passages(
         f_map[aid] = aid
 
     if not has_key:
-        return extract_steps_from_passages(query, passages, assets)
+        return extract_steps_from_passages(query, passages, assets, language=norm_lang)
 
     # Build source context for LLM
     source_context = "\n\n".join(
@@ -583,6 +586,14 @@ async def build_sop_from_passages(
         "Use supplied figure tokens for part_image; never invent an image URL.\n"
         "7. If the passages do not contain enough procedural evidence, return {\"abstain\": true}.\n"
     )
+
+    if norm_lang != "English":
+        system_prompt += (
+            f"\n\nCRITICAL LANGUAGE MANDATE: All fields in the returned JSON "
+            f"(title, problem, category, symptoms, possible_causes, steps instruction, caution, checks text) "
+            f"MUST be written strictly and exclusively in {norm_lang}. "
+            f"Do NOT write in English unless {norm_lang} is English."
+        )
 
     user_prompt_lines = [
         f"Query: {query}",

@@ -1615,13 +1615,13 @@ app = FastAPI(
 )
 
 
-@app.get("/", include_in_schema=False)
-@app.get("/invite/{code}", include_in_schema=False)
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/invite/{code}", methods=["GET", "HEAD"], include_in_schema=False)
 def frontend(code: str = "") -> FileResponse:
     return FileResponse(ROOT / "industrial_genai_sop_assistant.html")
 
 
-@app.get("/favicon.ico", include_in_schema=False)
+@app.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)
 def favicon() -> Response:
     # A tiny transparent ICO so the browser stops requesting a missing file.
     icon = (
@@ -1633,14 +1633,14 @@ def favicon() -> Response:
 
 
 
-@app.get("/live", include_in_schema=False)
-@app.get("/live-audio", include_in_schema=False)
-@app.get("/live_audio_chat.html", include_in_schema=False)
-@app.get("/voice-chat", include_in_schema=False)
+@app.api_route("/live", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/live-audio", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/live_audio_chat.html", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/voice-chat", methods=["GET", "HEAD"], include_in_schema=False)
 def live_audio_chat() -> FileResponse:
     return FileResponse(ROOT / "live_audio_chat.html")
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health() -> dict[str, str]:
     return {"status": "ok", "mode": "evidence-only", "model": "extractive retrieval"}
 

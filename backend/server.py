@@ -17,6 +17,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -96,14 +97,13 @@ async def start_cloudflared_tunnel(cloudflared_path: str, local_port: int) -> tu
         nonlocal tunnel_url
         if not proc.stdout:
             return None
-        # Read lines up to 15 seconds to find trycloudflare URL
-        start_time = asyncio.get_event_loop().time()
+        start = time.time()
         for line in iter(proc.stdout.readline, ""):
             match = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", line)
             if match:
                 tunnel_url = match.group(0)
                 return tunnel_url
-            if proc.poll() is not None:
+            if proc.poll() is not None or (time.time() - start > 15):
                 break
         return None
 

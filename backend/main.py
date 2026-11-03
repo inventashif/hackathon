@@ -1703,8 +1703,18 @@ def serve_uploaded_image(image_name: str, user: auth.User = Depends(require_auth
 
 # ---- Auth routes ----
 
+def is_cookie_secure(http_req: Request | None) -> bool:
+    if auth.COOKIE_SECURE:
+        return True
+    if not http_req:
+        return False
+    scheme = http_req.url.scheme
+    forwarded = http_req.headers.get("x-forwarded-proto", "")
+    return scheme == "https" or forwarded.lower() == "https"
+
+
 @app.post("/api/auth/login")
-def login(request: auth.LoginRequest, response: Response) -> dict[str, Any]:
+def login(request: auth.LoginRequest, response: Response, http_request: Request) -> dict[str, Any]:
     """Authenticate a user and set a session cookie."""
     with connect() as connection:
         user_row = auth.get_user_by_username(connection, request.username)
@@ -1728,7 +1738,7 @@ def login(request: auth.LoginRequest, response: Response) -> dict[str, Any]:
         value=session_token,
         httponly=True,
         samesite="lax",
-        secure=auth.COOKIE_SECURE,
+        secure=is_cookie_secure(http_request),
         max_age=auth.SESSION_EXPIRY_DAYS * 24 * 60 * 60,
     )
 
@@ -3618,6 +3628,7 @@ def accept_invite(
     code: str,
     request: auth.AcceptInviteRequest,
     response: Response,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Accept an invite and create a new engineer account."""
     with connect() as connection:
@@ -3634,7 +3645,7 @@ def accept_invite(
         value=session_token,
         httponly=True,
         samesite="lax",
-        secure=auth.COOKIE_SECURE,
+        secure=is_cookie_secure(http_request),
         max_age=auth.SESSION_EXPIRY_DAYS * 24 * 60 * 60,
     )
 

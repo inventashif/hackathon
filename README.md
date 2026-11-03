@@ -6,6 +6,7 @@
 
 - **Multi-user authentication** with PBKDF2 password hashing, session cookies, and role-based access control (admin/engineer).
 - **Shared chat room** with real-time polling, allowing multiple users to collaborate in the same conversation.
+- **Smart Fault Detective** that asks safe symptom questions, then technical follow-ups grounded only in approved manuals for the selected machine and model, with page and section source references.
 - **SOP generation** from approved manuals with numbered steps, citations, and original extracted figures.
 - **Feedback and notes** on SOPs, including engineer-synthesized notes from collective experience.
 - **PDF export** of SOPs with steps, figures, feedback, and notes.
@@ -144,6 +145,7 @@ inside the image for image OCR. To follow logs, run
 1. **First login**: Sign in with the default admin account (`admin`/`admin`). You'll see a prompt to change your password.
 2. **Upload and approve**: Upload a PDF or DOCX document, observe that it is pending, then approve it in the Admin view.
 3. **SOP generation**: Ask a procedure question like "How do I perform a safety check?" with sufficient evidence in approved documents. The system will generate an SOP with steps and figures.
+3b. **Fault Detective**: Open Fault Detective, select Siemens SINAMICS / G120C / F30001, answer the symptom questions, and confirm the follow-ups cite the approved demo manual page.
 4. **Shared chat**: Open the app in a second browser window and log in with a new engineer account (create via Invite). Messages appear in both windows.
 5. **Feedback**: Add feedback to a generated SOP and synthesize a note from collective experience.
 6. **Export**: Export an SOP as PDF with steps, figures, feedback, and notes.
@@ -178,7 +180,8 @@ The API is same-origin and does not enable cross-origin access. Main endpoints:
 `GET /api/users`, `POST /api/users`, `POST /api/users/{id}/disable`, `POST /api/users/{id}/enable`,
 `GET /api/documents`, `POST /api/documents`, `POST /api/documents/{id}/approve`,
 `POST /api/documents/{id}/reject`, `DELETE /api/documents/{id}`,
-`POST /api/chat`, `GET /api/rooms/shared`, `GET /api/rooms/shared/messages`,
+`POST /api/chat`, `POST /api/detective/sessions`, `GET /api/detective/sessions/{id}`,
+`POST /api/detective/sessions/{id}/answer`, `GET /api/rooms/shared`, `GET /api/rooms/shared/messages`,
 `POST /api/invites`, `GET /api/invites/{code}`, `POST /api/invites/{code}/accept`,
 `GET /api/sops/{id}`, `POST /api/sops/{id}/feedback`, `POST /api/sops/{id}/notes`,
 `POST /api/sops/{id}/notes/synthesize`, `POST /api/sops/{id}/export`,

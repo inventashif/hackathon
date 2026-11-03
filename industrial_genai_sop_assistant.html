@@ -382,6 +382,10 @@
                     <i class="fa-solid fa-comments"></i>
                     <span>Assistant</span>
                 </button>
+                <button id="viewDetectiveBtn" onclick="switchMainView('detective')" class="px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5">
+                    <i class="fa-solid fa-user-doctor"></i>
+                    <span>Fault Detective</span>
+                </button>
                 <button id="viewAnalyticsBtn" onclick="switchMainView('analytics')" class="px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5">
                     <i class="fa-solid fa-chart-line"></i>
                     <span>Supervisor Dashboard</span>
@@ -874,6 +878,99 @@
             </div>
         </main>
 
+        <!-- VIEW: SMART FAULT DETECTIVE -->
+        <main id="detectiveView" class="hidden flex-1 bg-industrial-900 overflow-hidden flex flex-col">
+            <div class="bg-industrial-800 border-b border-industrial-700 px-4 py-3 shrink-0">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                            <i class="fa-solid fa-user-doctor text-industrial-accent"></i>
+                            Smart Fault Detective
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1 max-w-3xl">
+                            Technical cross-questions are taken only from approved manuals for the selected machine and model.
+                            Pending or rejected documents are never used. Dangerous electrical or mechanical inspections are not requested.
+                        </p>
+                    </div>
+                    <span class="text-[10px] font-mono bg-industrial-900 border border-industrial-cyan/40 text-industrial-cyan px-2 py-1 rounded">
+                        APPROVED MANUAL ONLY
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[320px_1fr]">
+                <aside class="border-r border-industrial-700 bg-industrial-800 p-4 space-y-3 overflow-y-auto">
+                    <div class="space-y-1.5 pb-2 border-b border-industrial-700">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-mono text-slate-400 uppercase">Quick Demo Presets</span>
+                            <span class="text-[9px] text-industrial-cyan font-mono">1-CLICK</span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <button type="button" onclick="fillDetectivePreset('Siemens SINAMICS', 'G120C', 'F30001', 'Drive tripped with F30001 overcurrent fault on BOP')"
+                                    class="text-left px-2.5 py-1.5 bg-industrial-900 border border-industrial-700 hover:border-industrial-cyan text-xs text-slate-200 rounded transition flex items-center justify-between">
+                                <span><b>Siemens G120C</b> (F30001)</span>
+                                <i class="fa-solid fa-arrow-right text-[10px] text-slate-400"></i>
+                            </button>
+                            <button type="button" onclick="fillDetectivePreset('Fagor CNC', '8055', '2000', 'External emergency activated on control console')"
+                                    class="text-left px-2.5 py-1.5 bg-industrial-900 border border-industrial-700 hover:border-industrial-cyan text-xs text-slate-200 rounded transition flex items-center justify-between">
+                                <span><b>Fagor CNC 8055</b> (2000)</span>
+                                <i class="fa-solid fa-arrow-right text-[10px] text-slate-400"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase">Machine</label>
+                    <input id="detectiveMachineName" type="text" placeholder="e.g. Siemens SINAMICS"
+                           class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-2 text-xs text-slate-100">
+
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase">Model</label>
+                    <input id="detectiveMachineModel" type="text" placeholder="e.g. G120C"
+                           class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-2 text-xs text-slate-100">
+
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase">Error / Fault Code</label>
+                    <input id="detectiveErrorCode" type="text" placeholder="e.g. F30001"
+                           class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-2 text-xs text-slate-100">
+
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase">Approved manual (optional pin)</label>
+                    <select id="detectiveManualSelect"
+                            class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-2 text-xs text-slate-200">
+                        <option value="">Match by machine / model name</option>
+                    </select>
+
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase">Initial complaint (optional)</label>
+                    <textarea id="detectiveInitialSymptom" rows="3" placeholder="What did the operator notice?"
+                              class="w-full bg-industrial-900 border border-industrial-700 rounded px-2.5 py-2 text-xs text-slate-100"></textarea>
+
+                    <button type="button" onclick="startDetectiveSession()"
+                            class="w-full bg-industrial-accent hover:bg-orange-600 text-white font-semibold text-xs py-2 rounded">
+                        Start investigation
+                    </button>
+                    <p id="detectiveStartError" class="hidden text-[11px] text-industrial-danger"></p>
+                    <div id="detectiveManualBadge" class="text-[11px] text-slate-400 font-mono"></div>
+                </aside>
+
+                <section class="flex flex-col min-h-0">
+                    <div id="detectiveStream" class="flex-1 overflow-y-auto p-4 space-y-3">
+                        <div class="bg-industrial-800 border border-industrial-700 rounded-lg p-4 text-sm text-slate-300">
+                            Select the machine and model, then start. Basic symptom questions may be asked first.
+                            After that, every technical question is tied to a page and section in an approved manual.
+                        </div>
+                    </div>
+                    <div class="border-t border-industrial-700 p-3 bg-industrial-800 shrink-0">
+                        <div class="flex items-center gap-2">
+                            <input id="detectiveAnswerInput" type="text" placeholder="Answer the current question..."
+                                   class="flex-1 bg-industrial-900 border border-industrial-700 rounded px-3 py-2 text-sm text-slate-100"
+                                   onkeydown="if(event.key==='Enter') submitDetectiveAnswer()">
+                            <button type="button" onclick="submitDetectiveAnswer()"
+                                    class="bg-industrial-cyan text-white text-xs font-semibold px-4 py-2 rounded">
+                                Send answer
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
         <!-- VIEW 3: ADMIN DASHBOARD -->
         <main id="adminView" class="hidden flex-1 bg-industrial-900 overflow-y-auto p-6 space-y-6">
             <div class="flex flex-wrap items-center justify-between gap-4 border-b border-industrial-700 pb-4">
@@ -1212,6 +1309,8 @@
         let renderedMessageIds = new Set();
         let documentCache = [];
         let dashboardCharts = [];
+        let detectiveSessionId = null;
+        let currentDetectivePayload = null;
 
         // Live voice (Gemini) state
         let liveWs = null;
@@ -1234,45 +1333,46 @@
             checkAuth();
         });
 
-        // Switch Views (Assistant vs Analytics Dashboard vs Admin)
+        // Switch Views (Assistant vs Fault Detective vs Analytics vs Admin)
         function switchMainView(view) {
             activeView = view;
             const assistantView = document.getElementById('assistantView');
+            const detectiveView = document.getElementById('detectiveView');
             const analyticsView = document.getElementById('analyticsView');
             const adminView = document.getElementById('adminView');
             const assistantBtn = document.getElementById('viewAssistantBtn');
+            const detectiveBtn = document.getElementById('viewDetectiveBtn');
             const analyticsBtn = document.getElementById('viewAnalyticsBtn');
             const adminBtn = document.getElementById('viewAdminBtn');
+            const inactiveBtn = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
+            const activeBtn = "px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow";
+
+            assistantView.classList.add('hidden');
+            if (detectiveView) detectiveView.classList.add('hidden');
+            analyticsView.classList.add('hidden');
+            adminView.classList.add('hidden');
+            assistantBtn.className = inactiveBtn;
+            if (detectiveBtn) detectiveBtn.className = inactiveBtn;
+            analyticsBtn.className = inactiveBtn;
+            adminBtn.className = inactiveBtn;
+            stopSharedChatPolling();
 
             if (view === 'assistant') {
                 assistantView.classList.remove('hidden');
-                analyticsView.classList.add('hidden');
-                adminView.classList.add('hidden');
-                
-                assistantBtn.className = "px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow";
-                analyticsBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
-                adminBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
+                assistantBtn.className = activeBtn;
                 startSharedChatPolling();
+            } else if (view === 'detective') {
+                if (detectiveView) detectiveView.classList.remove('hidden');
+                if (detectiveBtn) detectiveBtn.className = activeBtn;
+                populateDetectiveManuals();
             } else if (view === 'analytics') {
-                assistantView.classList.add('hidden');
                 analyticsView.classList.remove('hidden');
-                adminView.classList.add('hidden');
-                stopSharedChatPolling();
+                analyticsBtn.className = activeBtn;
                 refreshAnalytics();
-
-                analyticsBtn.className = "px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow";
-                assistantBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
-                adminBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
             } else if (view === 'admin') {
-                assistantView.classList.add('hidden');
-                analyticsView.classList.add('hidden');
                 adminView.classList.remove('hidden');
-                stopSharedChatPolling();
+                adminBtn.className = activeBtn;
                 loadAdminData();
-
-                adminBtn.className = "px-3 py-1.5 rounded font-medium transition-all flex items-center space-x-1.5 bg-industrial-accent text-white shadow";
-                assistantBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
-                analyticsBtn.className = "px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
             }
         }
 
@@ -1404,6 +1504,7 @@
                 renderDocuments();
                 updateDocFilterBanner();
                 updateModuleSelect();
+                populateDetectiveManuals();
             } catch (error) {
                 document.getElementById('documentList').replaceChildren(
                     makeTextElement('p', 'p-3 text-xs text-industrial-warning', 'Knowledge base unavailable. Start the backend and refresh.')
@@ -1426,6 +1527,280 @@
                 selectEl.appendChild(opt);
             });
             updateContextActiveIndicator();
+            populateDetectiveManuals();
+        }
+
+        function fillDetectivePreset(machine, model, errorCode, symptom) {
+            const mInput = document.getElementById('detectiveMachineName');
+            const modInput = document.getElementById('detectiveMachineModel');
+            const errInput = document.getElementById('detectiveErrorCode');
+            const symInput = document.getElementById('detectiveInitialSymptom');
+            const selectEl = document.getElementById('detectiveManualSelect');
+            if (mInput) mInput.value = machine;
+            if (modInput) modInput.value = model;
+            if (errInput) errInput.value = errorCode;
+            if (symInput) symInput.value = symptom;
+
+            // Auto-select manual if model or machine matches option text
+            if (selectEl && model) {
+                for (let i = 0; i < selectEl.options.length; i++) {
+                    const opt = selectEl.options[i];
+                    if (opt.text.toLowerCase().includes(model.toLowerCase()) || (machine && opt.text.toLowerCase().includes(machine.toLowerCase().split(' ')[0]))) {
+                        selectEl.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        function populateDetectiveManuals() {
+            const selectEl = document.getElementById('detectiveManualSelect');
+            if (!selectEl) return;
+            const currentVal = selectEl.value;
+            selectEl.innerHTML = '<option value="">Match by machine / model name</option>';
+            const approved = (documentCache || []).filter(d => d.approved && !d.rejected);
+            approved.forEach(doc => {
+                const opt = document.createElement('option');
+                opt.value = String(doc.id);
+                opt.textContent = `${doc.name} (Doc #${doc.id})`;
+                if (String(doc.id) === currentVal) opt.selected = true;
+                selectEl.appendChild(opt);
+            });
+        }
+
+        function detectiveSourceHtml(source) {
+            if (!source) return '';
+            const page = source.page ? `p. ${escapeHtml(source.page)}` : 'page not marked';
+            const section = source.section ? escapeHtml(source.section) : 'Relevant troubleshooting section';
+            const excerpt = source.excerpt ? `<div class="mt-1 text-[11px] text-slate-300 italic border-l-2 border-industrial-cyan/50 pl-2 py-0.5">“${escapeHtml(source.excerpt)}”</div>` : '';
+            return `<div class="mt-2 text-[10px] font-mono text-industrial-cyan bg-industrial-950/90 border border-industrial-cyan/40 rounded p-2 shadow-sm">
+                <div class="flex items-center gap-1.5 font-bold">
+                    <i class="fa-solid fa-book-bookmark text-industrial-cyan"></i>
+                    <span>Approved Source:</span>
+                    <span class="text-white">${escapeHtml(source.document_name)}</span>
+                    <span class="bg-industrial-800 text-slate-300 px-1.5 py-0.2 rounded">${page}</span>
+                </div>
+                <div class="mt-0.5 text-slate-400 font-sans text-xs font-medium">${section}</div>
+                ${excerpt}
+            </div>`;
+        }
+
+        function renderDetectiveSession(payload) {
+            currentDetectivePayload = payload;
+            const stream = document.getElementById('detectiveStream');
+            const badge = document.getElementById('detectiveManualBadge');
+            const answerInput = document.getElementById('detectiveAnswerInput');
+            if (!stream) return;
+            const manuals = (payload.approved_manuals || []).map(m => escapeHtml(m.name)).join(', ') || 'None matched';
+            if (badge) {
+                badge.innerHTML = `<i class="fa-solid fa-shield-halved text-industrial-cyan mr-1"></i>Approved manuals in use: <span class="text-slate-200 font-semibold">${payload.approved_manuals && payload.approved_manuals.length ? manuals : 'none matched'}</span>`;
+            }
+            stream.innerHTML = '';
+            (payload.turns || []).forEach(turn => {
+                const isUser = turn.role === 'user';
+                const card = document.createElement('div');
+                card.className = isUser
+                    ? 'ml-8 bg-industrial-700/80 border border-industrial-600 rounded-lg p-3.5 text-sm shadow'
+                    : 'mr-8 bg-industrial-800 border border-industrial-700 rounded-lg p-3.5 text-sm shadow';
+
+                let kindBadge = '';
+                if (turn.kind === 'general') {
+                    kindBadge = `<span class="inline-flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold bg-blue-950 text-blue-300 border border-blue-700/60 px-2 py-0.5 rounded font-mono mb-1.5"><i class="fa-regular fa-comments"></i> General Symptom Inquiry</span>`;
+                } else if (turn.kind === 'technical') {
+                    kindBadge = `<span class="inline-flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold bg-cyan-950 text-cyan-300 border border-cyan-700/60 px-2 py-0.5 rounded font-mono mb-1.5"><i class="fa-solid fa-circle-check"></i> Approved Manual Cross-Question</span>`;
+                } else if (turn.kind === 'safety_escalation') {
+                    kindBadge = `<span class="inline-flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold bg-red-950 text-red-300 border border-red-700/60 px-2 py-0.5 rounded font-mono mb-1.5"><i class="fa-solid fa-triangle-exclamation"></i> Safety Escalation</span>`;
+                } else if (turn.kind === 'insufficient') {
+                    kindBadge = `<span class="inline-flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold bg-amber-950 text-amber-300 border border-amber-700/60 px-2 py-0.5 rounded font-mono mb-1.5"><i class="fa-solid fa-circle-info"></i> Insufficient Manual Information</span>`;
+                } else if (turn.kind === 'complete') {
+                    kindBadge = `<span class="inline-flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold bg-emerald-950 text-emerald-300 border border-emerald-700/60 px-2 py-0.5 rounded font-mono mb-1.5"><i class="fa-solid fa-clipboard-check"></i> Investigation Complete</span>`;
+                }
+
+                card.innerHTML = `${kindBadge}<div class="text-slate-100 whitespace-pre-wrap leading-relaxed">${escapeHtml(turn.content)}</div>${isUser ? '' : detectiveSourceHtml(turn.source)}`;
+                stream.appendChild(card);
+            });
+
+            // If session concluded, add actionable completion card
+            if (payload.status === 'complete') {
+                const actionCard = document.createElement('div');
+                actionCard.className = 'bg-emerald-950/40 border border-emerald-600/60 rounded-xl p-4 space-y-3';
+                actionCard.innerHTML = `
+                    <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                        <i class="fa-solid fa-check-double text-base"></i>
+                        <span>Manual Evidence Cross-Questioning Concluded</span>
+                    </div>
+                    <p class="text-xs text-slate-300">All documented observational checks for this fault have been reviewed. Ready to synthesize a grounded Standard Operating Procedure or escalate.</p>
+                    <div class="flex flex-wrap gap-2 pt-1">
+                        <button type="button" onclick="generateSopFromDetective()" class="bg-industrial-accent hover:bg-orange-600 text-white font-semibold text-xs px-3.5 py-2 rounded flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-file-signature"></i> Generate Grounded SOP
+                        </button>
+                        <button type="button" onclick="escalateFromDetective()" class="bg-industrial-800 hover:bg-industrial-700 border border-industrial-600 text-slate-200 text-xs px-3.5 py-2 rounded flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-bell"></i> Escalate to Supervisor
+                        </button>
+                    </div>
+                `;
+                stream.appendChild(actionCard);
+            } else if (payload.status === 'safety_escalation') {
+                const actionCard = document.createElement('div');
+                actionCard.className = 'bg-red-950/40 border border-red-600/60 rounded-xl p-4 space-y-3';
+                actionCard.innerHTML = `
+                    <div class="flex items-center gap-2 text-red-400 font-bold text-sm">
+                        <i class="fa-solid fa-hand text-base"></i>
+                        <span>Safety Boundary: Physical Inspection Required</span>
+                    </div>
+                    <p class="text-xs text-slate-300">Remaining checks in the approved manual require measuring live circuits or disassembling equipment. Do not proceed alone.</p>
+                    <div class="flex flex-wrap gap-2 pt-1">
+                        <button type="button" onclick="escalateFromDetective('Safety escalation: Physical or live electrical inspection required by approved manual.')" class="bg-industrial-danger hover:bg-red-700 text-white font-semibold text-xs px-3.5 py-2 rounded flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Log Supervisor Escalation Now
+                        </button>
+                    </div>
+                `;
+                stream.appendChild(actionCard);
+            } else if (payload.status === 'insufficient') {
+                const actionCard = document.createElement('div');
+                actionCard.className = 'bg-amber-950/40 border border-amber-600/60 rounded-xl p-4 space-y-3';
+                actionCard.innerHTML = `
+                    <div class="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                        <i class="fa-solid fa-circle-exclamation text-base"></i>
+                        <span>Approved Manual Lacks Sufficient Information</span>
+                    </div>
+                    <p class="text-xs text-slate-300">The approved manual for this machine/model does not describe diagnostic checks for this condition. Per policy, the system will not guess.</p>
+                    <div class="flex flex-wrap gap-2 pt-1">
+                        <button type="button" onclick="escalateFromDetective('Insufficient manual evidence: Approved manual does not contain documented checks for this fault.')" class="bg-industrial-warning hover:bg-amber-600 text-industrial-950 font-bold text-xs px-3.5 py-2 rounded flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Escalate to Plant Engineering
+                        </button>
+                    </div>
+                `;
+                stream.appendChild(actionCard);
+            }
+
+            if (answerInput) {
+                if (!payload.awaiting_answer) {
+                    answerInput.disabled = true;
+                    answerInput.placeholder = "Investigation concluded. See options above.";
+                } else {
+                    answerInput.disabled = false;
+                    answerInput.placeholder = "Answer the current question (safe observations only)...";
+                    answerInput.focus();
+                }
+            }
+
+            stream.scrollTop = stream.scrollHeight;
+        }
+
+        function generateSopFromDetective() {
+            if (!currentDetectivePayload) return;
+            const p = currentDetectivePayload;
+            switchMainView('assistant');
+            const drawer = document.getElementById('operationalContextDrawer');
+            if (drawer && drawer.classList.contains('hidden')) {
+                toggleOperationalContextDrawer();
+            }
+            if (document.getElementById('contextMachineName')) {
+                document.getElementById('contextMachineName').value = p.machine_name || '';
+            }
+            if (document.getElementById('contextMachineType')) {
+                document.getElementById('contextMachineType').value = p.machine_model || '';
+            }
+            if (document.getElementById('contextErrorCode')) {
+                document.getElementById('contextErrorCode').value = p.error_code || '';
+            }
+            if (document.getElementById('contextExpertNotes')) {
+                const answersSummary = (p.turns || [])
+                    .filter(t => t.role === 'user')
+                    .map(t => t.content)
+                    .join('; ');
+                document.getElementById('contextExpertNotes').value = `Diagnostic findings: ${answersSummary}`;
+            }
+            updateContextActiveIndicator();
+            const queryInput = document.getElementById('queryInput');
+            if (queryInput) {
+                queryInput.value = `Generate official SOP for ${p.machine_name} ${p.machine_model} ${p.error_code ? 'fault ' + p.error_code : ''}.`;
+            }
+            const sopToggle = document.getElementById('sopModeToggle');
+            if (sopToggle && !sopToggle.checked) {
+                sopToggle.checked = true;
+            }
+            appendNotice('Diagnostic findings imported from Smart Fault Detective. Generating grounded procedure...');
+            sendQuery();
+        }
+
+        function escalateFromDetective(customReason) {
+            if (!currentDetectivePayload) return;
+            const p = currentDetectivePayload;
+            const faultInfo = p.error_code ? `Fault: ${p.error_code}` : 'Unspecified fault';
+            const machineInfo = `${p.machine_name} ${p.machine_model}`.trim();
+            const defaultReason = customReason || `Diagnostic investigation for ${machineInfo} (${faultInfo}) escalated for qualified supervisor assistance.`;
+            const query = `Detective escalation: ${machineInfo} | ${faultInfo}`;
+            triggerExpertEscalation(query, defaultReason);
+        }
+
+        async function startDetectiveSession() {
+            const err = document.getElementById('detectiveStartError');
+            if (err) {
+                err.classList.add('hidden');
+                err.textContent = '';
+            }
+            const machine = document.getElementById('detectiveMachineName')?.value?.trim();
+            const model = document.getElementById('detectiveMachineModel')?.value?.trim() || '';
+            const errorCode = document.getElementById('detectiveErrorCode')?.value?.trim() || '';
+            const symptom = document.getElementById('detectiveInitialSymptom')?.value?.trim() || '';
+            const docVal = document.getElementById('detectiveManualSelect')?.value;
+            if (!machine) {
+                if (err) {
+                    err.textContent = 'Select a machine name before starting.';
+                    err.classList.remove('hidden');
+                }
+                return;
+            }
+            const body = {
+                machine_name: machine,
+                machine_model: model,
+                error_code: errorCode,
+                initial_symptom: symptom
+            };
+            if (docVal) body.document_id = Number(docVal);
+            try {
+                const response = await fetch('/api/detective/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.detail || 'Could not start detective session');
+                detectiveSessionId = payload.id;
+                renderDetectiveSession(payload);
+            } catch (error) {
+                if (err) {
+                    err.textContent = error.message;
+                    err.classList.remove('hidden');
+                }
+            }
+        }
+
+        async function submitDetectiveAnswer() {
+            const input = document.getElementById('detectiveAnswerInput');
+            const answer = input?.value?.trim();
+            if (!answer || !detectiveSessionId) return;
+            input.value = '';
+            try {
+                const response = await fetch(`/api/detective/sessions/${detectiveSessionId}/answer`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ answer })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.detail || 'Could not submit answer');
+                renderDetectiveSession(payload);
+            } catch (error) {
+                const stream = document.getElementById('detectiveStream');
+                if (stream) {
+                    const note = document.createElement('div');
+                    note.className = 'text-xs text-industrial-danger';
+                    note.textContent = error.message;
+                    stream.appendChild(note);
+                }
+            }
         }
 
         function syncModuleSelectWithFilter() {

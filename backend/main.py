@@ -26,7 +26,7 @@ from pypdf import PdfReader
 from dotenv import load_dotenv
 
 from backend.stemmer import stem as _stemmer
-from backend import auth, ingest, sop
+from backend import auth, detective, ingest, sop
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -414,6 +414,7 @@ def init_db() -> None:
 
         # Initialize SOP tables
         sop.init_sop_tables(connection)
+        detective.init_detective_tables(connection)
 
         # Migrations
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(queries)")}
@@ -2731,6 +2732,32 @@ async def chat(
     }
     log_session_message(session_id, "assistant", answer, "text", user_id=user.id)
     return response
+
+
+@app.post("/api/detective/sessions", status_code=201)
+def start_detective_session(
+    request: detective.DetectiveStartRequest,
+    user: auth.User = Depends(require_auth),
+) -> dict[str, Any]:
+    """Start a manual-grounded Smart Fault Detective interview."""
+    return detective.start_session(user.id, request)
+
+
+@app.get("/api/detective/sessions/{session_id}")
+def get_detective_session(
+    session_id: str,
+    user: auth.User = Depends(require_auth),
+) -> dict[str, Any]:
+    return detective.get_session(user.id, session_id)
+
+
+@app.post("/api/detective/sessions/{session_id}/answer")
+def answer_detective_question(
+    session_id: str,
+    request: detective.DetectiveAnswerRequest,
+    user: auth.User = Depends(require_auth),
+) -> dict[str, Any]:
+    return detective.answer_session(user.id, session_id, request)
 
 
 @app.get("/api/analytics")
